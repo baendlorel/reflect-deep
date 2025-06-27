@@ -1,27 +1,32 @@
 {
-	"name": "get-function-features",
+	"name": "reflect-deep",
 	"version": "1.0.0",
 	"author": {
 		"name": "KasukabeTsumugi",
 		"email": "futami16237@gmail.com"
 	},
-	"description": "JS/TS functions are divided into arrow functions, normal functions, member functions, async functions, and bound functions. This package aims to analyse these features.",
+	"description": "Deep property manipulation utilities with robust cloning, path traversal, and property access for JavaScript/TypeScript objects.",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": [
 		"dist"
 	],
 	"type": "module",
-	"homepage": "https://github.com/baendlorel/get-function-features#readme",
+	"homepage": "https://github.com/baendlorel/reflect-deep#readme",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/baendlorel/get-function-features"
+		"url": "https://github.com/baendlorel/reflect-deep"
 	},
 	"keywords": [
-		"arrow function",
-		"function",
-		"node",
-		"nodejs"
+		"deep",
+		"clone",
+		"reflect",
+		"property",
+		"path",
+		"object",
+		"nested",
+		"typescript",
+		"javascript"
 	],
 	"scripts": {
 		"test": "clear & jest",

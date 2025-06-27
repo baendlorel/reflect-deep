@@ -126,6 +126,18 @@ const deepClone = (cache: WeakMap<any, any>, o: any): any => {
   return result;
 };
 
+type ReachResult = {
+  /**
+   * The furthest reachable value in the object at the given property path.
+   */
+  value: any;
+
+  /**
+   * The index (of the parameter `propertyKeys`) of the last successfully reached property.
+   */
+  index: number;
+};
+
 export class ReflectDeep {
   constructor() {
     throw new TypeError('ReflectDeep is not a constructor.');
@@ -140,32 +152,28 @@ export class ReflectDeep {
   // }
 
   /**
-   * Disables warning messages for ReflectDeep operations.
-   * When disabled, warning messages will not be logged to the console.
+   * Disables warning messages.
    */
   static disableWarning() {
     common.setShowWarn(false);
   }
 
   /**
-   * Enables warning messages for ReflectDeep operations.
-   * When enabled, warning messages will be logged to the console.
+   * Enables warning messages.
    */
   static enableWarning() {
     common.setShowWarn(true);
   }
 
   /**
-   * Checks if a nested property exists in the target object.
-   * Equivalent to checking `propertyKeys[0] in target && propertyKeys[1] in target[propertyKeys[0]]...`
-   * @param target - The target object to check.
-   * @param propertyKeys - An array of property keys representing the path to the nested property.
-   * @returns `true` if the nested property exists, `false` otherwise.
-   * @throws If target is not an object, propertyKeys is not an array, or contains invalid keys.
+   * Checks if a nested property exists at the given path.
+   * @param target - Target object to check.
+   * @param propertyKeys - Property path to check.
+   * @returns `true` if the property exists, `false` otherwise.
+   * @throws If target is not an object or propertyKeys is invalid.
    * @example
-   * const obj = { a: { b: { c: 1 } } };
+   * const obj = { a: { b: { c: 'hello' } } };
    * ReflectDeep.has(obj, ['a', 'b', 'c']); // true
-   * ReflectDeep.has(obj, ['a', 'b', 'd']); // false
    */
   static has(target: object, propertyKeys: PropertyKey[]): boolean {
     expectArgs(ReflectDeep.has.name, target, propertyKeys);
@@ -185,25 +193,20 @@ export class ReflectDeep {
   }
 
   /**
-   * Reaches as far as possible along the given property keys path and returns the value at the furthest reachable point.
-   * Unlike `get`, this method does not require the full path to exist - it returns the value at the last accessible property.
-   * @param target - The target object to traverse.
-   * @param propertyKeys - An array of property keys representing the path to traverse.
-   * @param receiver - The value of `this` provided for the call to the getter if a getter is encountered.
-   * @returns The value at the furthest reachable point, or `undefined` if the first key doesn't exist.
-   * @throws If target is not an object, propertyKeys is not an array, or contains invalid keys.
+   * Traverses a property path and returns the furthest reachable value with its index.
+   * @param target - Target object to traverse.
+   * @param propertyKeys - Property path to traverse.
+   * @param receiver - The `this` value for getter calls.
+   * @returns Object with `value` (furthest reachable value) and `index` (position reached).
+   * @throws If target is not an object or propertyKeys is invalid.
    * @example
    * const obj = { a: { b: { c: 'hello' } } };
-   * ReflectDeep.reach(obj, ['a', 'b', 'c']); // 'hello' (full path exists)
-   * ReflectDeep.reach(obj, ['a', 'b', 'd']); // { c: 'hello' } (reaches 'a.b', then stops)
-   * ReflectDeep.reach(obj, ['a', 'x', 'y']); // { b: { c: 'hello' } } (reaches 'a', then stops)
-   * ReflectDeep.reach(obj, ['z']); // undefined (cannot reach 'z')
+   * ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2 }
+   * ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1 }
+   * ReflectDeep.reach(obj, ['a', 'x']);     // { value: { b: { c: 'hello' } }, index: 0 }
+   * ReflectDeep.reach(obj, ['d', 'x']);     // { value:  { a: { b: { c: 'hello' } } }, index: -1 }
    */
-  static reach(
-    target: object,
-    propertyKeys: PropertyKey[],
-    receiver?: any
-  ): { value: any; index: number } {
+  static reach(target: object, propertyKeys: PropertyKey[], receiver?: any): ReachResult {
     expectArgs(ReflectDeep.reach.name, target, propertyKeys);
 
     let current = target;
@@ -228,17 +231,15 @@ export class ReflectDeep {
   }
 
   /**
-   * Gets the value of a nested property from the target object.
-   * @template T - The expected return type of the nested property.
-   * @param target - The target object to get the property from.
-   * @param propertyKeys - An array of property keys representing the path to the nested property.
-   * @param receiver - The value of `this` provided for the call to the getter if a getter is encountered.
-   * @returns The value of the nested property, or `undefined` if the property doesn't exist.
-   * @throws If target is not an object, propertyKeys is not an array, or contains invalid keys.
+   * Gets the value of a nested property.
+   * @param target - Target object.
+   * @param propertyKeys - Property path.
+   * @param receiver - The `this` value for getter calls.
+   * @returns The property value, or `undefined` if not found.
+   * @throws If target is not an object or propertyKeys is invalid.
    * @example
    * const obj = { a: { b: { c: 'hello' } } };
-   * ReflectDeep.get<string>(obj, ['a', 'b', 'c']); // 'hello'
-   * ReflectDeep.get(obj, ['a', 'b', 'd']); // undefined
+   * ReflectDeep.get(obj, ['a', 'b', 'c']); // 'hello'
    */
   static get<T = any>(
     target: any,
@@ -265,21 +266,17 @@ export class ReflectDeep {
   }
 
   /**
-   * Sets the value of a nested property in the target object.
-   * Creates intermediate objects as needed if they don't exist.
-   * @template T - The type of the value being set.
-   * @param target - The target object to set the property on.
-   * @param propertyKeys - An array of property keys representing the path to the nested property.
-   * @param value - The value to set.
-   * @param receiver - The value of `this` provided for the call to the setter if a setter is encountered.
-   * @returns `true` if the property was set successfully, `false` otherwise.
-   * @throws If target is not an object, propertyKeys is not an array, or contains invalid keys.
+   * Sets a nested property value, creating intermediate objects as needed.
+   * @param target - Target object.
+   * @param propertyKeys - Property path.
+   * @param value - Value to set.
+   * @param receiver - The `this` value for setter calls.
+   * @returns `true` if successful, `false` otherwise.
+   * @throws If target is not an object or propertyKeys is invalid.
    * @example
-   * const obj = {};
-   * ReflectDeep.set(obj, ['a', 'b', 'c'], 'hello'); // true, obj becomes { a: { b: { c: 'hello' } } }
-   *
-   * const readOnlyObj = Object.freeze({ a: {} });
-   * ReflectDeep.set(readOnlyObj, ['a', 'b'], 'value'); // false, cannot set on frozen object
+   * const obj = { };
+   * ReflectDeep.set(obj, ['a', 'b', 'c'], 'hello'); // Creates nested structure
+   * obj.a.b.c; // 'hello'
    */
   static set<T = any>(
     target: any,
@@ -323,16 +320,13 @@ export class ReflectDeep {
   }
 
   /**
-   * Creates a deep clone of the given object.
-   * Handles various JavaScript types including primitives, objects, arrays, Maps, Sets, Dates, RegExp, Errors, etc.
-   * Uses a WeakMap to handle circular references properly.
-   * @template T - The type of the object being cloned.
-   * @param obj - The object to clone.
-   * @returns A deep clone of the input object.
+   * Creates a deep clone of an object, handling circular references and various JS types.
+   * @param obj - Object to clone.
+   * @returns A deep clone of the object.
    * @example
-   * const original = { a: { b: [1, 2, { c: 3 }] } };
-   * const cloned = ReflectDeep.clone(original);
-   * cloned.a.b[2].c = 4; // original.a.b[2].c is still 3
+   * const obj = { a: { b: [1, 2, { c: 3 }] } };
+   * const cloned = ReflectDeep.clone(obj);
+   * cloned.a.b[2].c = 4; // obj.a.b[2].c is still 3
    *
    * // Handles circular references
    * const circular = { self: null };
