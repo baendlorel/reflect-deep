@@ -1,5 +1,6 @@
 import { expect, fdescribe } from '@jest/globals';
 import { describe, it, fit, env, Env } from './injected-jest';
+// import { ReflectDeep } from '../dist';
 import { ReflectDeep } from '../src';
 
 describe('ReflectDeep 深度反射测试', () => {

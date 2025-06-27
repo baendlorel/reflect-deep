@@ -1,3 +1,6 @@
+# Jest
+coverage/
+
 # Logs
 logs
 *.log

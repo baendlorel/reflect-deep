@@ -1,180 +1,171 @@
 import { common, isPrimitive, expectArgs } from './common';
+export namespace ReflectDeep {
+  type ReachResult = {
+    /**
+     * The furthest reachable value in the object at the given property path.
+     */
+    value: any;
 
-const keyChain = (keys: PropertyKey[]) =>
-  keys
-    .map((k) => {
-      switch (typeof k) {
-        case 'string':
-          return `['${k}']`;
-        case 'symbol':
-          return `[${String(k)}]`;
-        default:
-          return `[${k}]`;
+    /**
+     * The index (of the parameter `propertyKeys`) of the last successfully reached property.
+     */
+    index: number;
+  };
+
+  const NO_RECEIVER = Symbol('no-receiver');
+
+  const keyChain = (keys: PropertyKey[]) =>
+    keys
+      .map((k) => {
+        switch (typeof k) {
+          case 'string':
+            return `['${k}']`;
+          case 'symbol':
+            return `[${String(k)}]`;
+          default:
+            return `[${k}]`;
+        }
+      })
+      .join('');
+
+  const deepClone = (cache: WeakMap<any, any>, o: any): any => {
+    if (typeof o !== 'object' || o === null) {
+      return o;
+    }
+
+    if (cache.has(o)) {
+      return cache.get(o);
+    }
+
+    // # Boxed primitives (Number, String, Boolean, BigInt, Symbol objects)
+    if (o instanceof Number || o instanceof String || o instanceof Boolean) {
+      return Object(o.valueOf());
+    }
+
+    if (
+      typeof BigInt !== 'undefined' &&
+      o instanceof Object &&
+      o.constructor === BigInt
+    ) {
+      return BigInt(o.toString());
+    }
+
+    // # Common types
+    if (Array.isArray(o)) {
+      const result: any[] = [];
+      cache.set(o, result);
+      for (let i = 0; i < o.length; i++) {
+        if (i in o) {
+          result[i] = deepClone(cache, o[i]);
+        }
       }
-    })
-    .join('');
+      return result;
+    }
 
-const deepClone = (cache: WeakMap<any, any>, o: any): any => {
-  if (typeof o !== 'object' || o === null) {
-    return o;
-  }
+    if (o instanceof Map) {
+      const result = new Map();
+      cache.set(o, result);
+      o.forEach((v, k) => {
+        result.set(deepClone(cache, k), deepClone(cache, v));
+      });
+      return result;
+    }
 
-  if (cache.has(o)) {
-    return cache.get(o);
-  }
+    if (o instanceof Set) {
+      const result = new Set();
+      cache.set(o, result);
+      o.forEach((v) => {
+        result.add(deepClone(cache, v));
+      });
+      return result;
+    }
 
-  // # Boxed primitives (Number, String, Boolean, BigInt, Symbol objects)
-  if (o instanceof Number || o instanceof String || o instanceof Boolean) {
-    return Object(o.valueOf());
-  }
+    if (o instanceof Date) {
+      return new Date(o);
+    }
 
-  if (typeof BigInt !== 'undefined' && o instanceof Object && o.constructor === BigInt) {
-    return BigInt(o.toString());
-  }
+    if (o instanceof RegExp) {
+      return new RegExp(o.source, o.flags);
+    }
 
-  // # Common types
-  if (Array.isArray(o)) {
-    const result: any[] = [];
-    cache.set(o, result);
-    for (let i = 0; i < o.length; i++) {
-      if (i in o) {
-        result[i] = deepClone(cache, o[i]);
+    // #  Values cannot be copied
+    if (o instanceof WeakMap) {
+      common.warn('WeakMap cannot be cloned, returning the origin one');
+      return o;
+    }
+
+    if (o instanceof WeakSet) {
+      common.warn('WeakSet cannot be cloned, returning the origin one');
+      return o;
+    }
+
+    if (o instanceof WeakRef) {
+      return new WeakRef(deepClone(cache, o.deref()));
+    }
+
+    if (o instanceof Promise) {
+      common.warn('Promise cannot be cloned, returning the original Promise');
+      return o;
+    }
+
+    if (o instanceof SharedArrayBuffer) {
+      // SharedArrayBuffer cannot be cloned safely, return the same reference
+      common.warn('SharedArrayBuffer cannot be cloned, returning the same reference');
+      return o;
+    }
+
+    // # Typed arrays and DataView
+    if (ArrayBuffer.isView(o)) {
+      const TypedArrayConstructor = (o as any).constructor;
+      if (o instanceof DataView) {
+        // DataView needs special handling - copy the underlying buffer and recreate
+        const clonedBuffer = o.buffer.slice(o.byteOffset, o.byteOffset + o.byteLength);
+        return new DataView(clonedBuffer);
+      } else {
+        // TypedArrays can be created from the original array
+        return new TypedArrayConstructor(o);
       }
     }
-    return result;
-  }
 
-  if (o instanceof Map) {
-    const result = new Map();
-    cache.set(o, result);
-    o.forEach((v, k) => {
-      result.set(deepClone(cache, k), deepClone(cache, v));
-    });
-    return result;
-  }
-
-  if (o instanceof Set) {
-    const result = new Set();
-    cache.set(o, result);
-    o.forEach((v) => {
-      result.add(deepClone(cache, v));
-    });
-    return result;
-  }
-
-  if (o instanceof Date) {
-    return new Date(o);
-  }
-
-  if (o instanceof RegExp) {
-    return new RegExp(o.source, o.flags);
-  }
-
-  // #  Values cannot be copied
-  if (o instanceof WeakMap) {
-    common.warn('WeakMap cannot be cloned, returning the origin one');
-    return o;
-  }
-
-  if (o instanceof WeakSet) {
-    common.warn('WeakSet cannot be cloned, returning the origin one');
-    return o;
-  }
-
-  if (o instanceof WeakRef) {
-    return new WeakRef(deepClone(cache, o.deref()));
-  }
-
-  if (o instanceof Promise) {
-    common.warn('Promise cannot be cloned, returning the original Promise');
-    return o;
-  }
-
-  if (o instanceof SharedArrayBuffer) {
-    // SharedArrayBuffer cannot be cloned safely, return the same reference
-    common.warn('SharedArrayBuffer cannot be cloned, returning the same reference');
-    return o;
-  }
-
-  // # Typed arrays and DataView
-  if (ArrayBuffer.isView(o)) {
-    const TypedArrayConstructor = (o as any).constructor;
-    if (o instanceof DataView) {
-      // DataView needs special handling - copy the underlying buffer and recreate
-      const clonedBuffer = o.buffer.slice(o.byteOffset, o.byteOffset + o.byteLength);
-      return new DataView(clonedBuffer);
-    } else {
-      // TypedArrays can be created from the original array
-      return new TypedArrayConstructor(o);
-    }
-  }
-
-  if (o instanceof ArrayBuffer) {
-    return o.slice(0);
-  }
-
-  // # Node.js Buffer (if available)
-  if (typeof Buffer !== 'undefined' && o instanceof Buffer) {
-    return Buffer.from(o);
-  }
-
-  // # Copy everything else
-  const result = Object.create(Reflect.getPrototypeOf(o));
-  cache.set(o, result);
-
-  const keys = Reflect.ownKeys(o);
-  for (let i = 0; i < keys.length; i++) {
-    // some prop may be carried over from prototype chain, so we need to check if it exists on the object
-    if (!Reflect.has(o, keys[i])) {
-      continue;
+    if (o instanceof ArrayBuffer) {
+      return o.slice(0);
     }
 
-    const value = Reflect.get(o, keys[i]);
-    Reflect.set(result, keys[i], deepClone(cache, value));
-  }
-  return result;
-};
+    // # Node.js Buffer (if available)
+    if (typeof Buffer !== 'undefined' && o instanceof Buffer) {
+      return Buffer.from(o);
+    }
 
-type ReachResult = {
-  /**
-   * The furthest reachable value in the object at the given property path.
-   */
-  value: any;
+    // # Copy everything else
+    const result = Object.create(Reflect.getPrototypeOf(o));
+    cache.set(o, result);
 
-  /**
-   * The index (of the parameter `propertyKeys`) of the last successfully reached property.
-   */
-  index: number;
-};
+    const keys = Reflect.ownKeys(o);
+    for (let i = 0; i < keys.length; i++) {
+      // some prop may be carried over from prototype chain, so we need to check if it exists on the object
+      if (!Reflect.has(o, keys[i])) {
+        continue;
+      }
 
-const NO_RECEIVER = Symbol('no-receiver');
-
-export class ReflectDeep {
-  constructor() {
-    throw new TypeError('ReflectDeep is not a constructor.');
-  }
-
-  /**
-   * Gets a deep copy of the current configuration object.
-   * @returns A deep clone of the configuration object.
-   */
-  // static getConfig() {
-  //   return deepClone(new WeakMap(), config);
-  // }
+      const value = Reflect.get(o, keys[i]);
+      Reflect.set(result, keys[i], deepClone(cache, value));
+    }
+    return result;
+  };
 
   /**
    * Disables warning messages for ReflectDeep operations.
    */
-  static disableWarning() {
+  export const disableWarning = () => {
     common.setShowWarn(false);
-  }
+  };
 
   /**
    * Enables warning messages for ReflectDeep operations.
    */
-  static enableWarning() {
+  export const enableWarning = () => {
     common.setShowWarn(true);
-  }
+  };
 
   /**
    * Checks if a nested property exists at the given path.
@@ -186,8 +177,8 @@ export class ReflectDeep {
    * const obj = { a: { b: { c: 'hello' } } };
    * ReflectDeep.has(obj, ['a', 'b', 'c']); // true
    */
-  static has(target: object, propertyKeys: PropertyKey[]): boolean {
-    expectArgs(ReflectDeep.has.name, target, propertyKeys);
+  export const has = (target: object, propertyKeys: PropertyKey[]): boolean => {
+    expectArgs('has', target, propertyKeys);
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
@@ -201,7 +192,7 @@ export class ReflectDeep {
       }
     }
     return Reflect.has(current, propertyKeys[propertyKeys.length - 1]);
-  }
+  };
 
   /**
    * Traverses a property path and returns the furthest reachable value with its index.
@@ -217,12 +208,12 @@ export class ReflectDeep {
    * ReflectDeep.reach(obj, ['a', 'x']);     // { value: { b: { c: 'hello' } }, index: 0 }
    * ReflectDeep.reach(obj, ['d', 'x']);     // { value:  { a: { b: { c: 'hello' } } }, index: -1 }
    */
-  static reach(
+  export const reach = (
     target: object,
     propertyKeys: PropertyKey[],
     receiver: any = NO_RECEIVER
-  ): ReachResult {
-    expectArgs(ReflectDeep.reach.name, target, propertyKeys);
+  ): ReachResult => {
+    expectArgs('reach', target, propertyKeys);
 
     let current = target;
     for (let i = 0; i < propertyKeys.length; i++) {
@@ -248,7 +239,7 @@ export class ReflectDeep {
     // Should not reach here, but just in case
     common.warn(`Unexpected reach: target${keyChain(propertyKeys)}`);
     return { value: current, index: -1 };
-  }
+  };
 
   /**
    * Gets the value of a nested property.
@@ -261,12 +252,12 @@ export class ReflectDeep {
    * const obj = { a: { b: { c: 'hello' } } };
    * ReflectDeep.get(obj, ['a', 'b', 'c']); // 'hello'
    */
-  static get<T = any>(
+  export const get = <T = any>(
     target: any,
     propertyKeys: PropertyKey[],
     receiver: any = NO_RECEIVER
-  ): T | undefined {
-    expectArgs(ReflectDeep.get.name, target, propertyKeys);
+  ): T | undefined => {
+    expectArgs('get', target, propertyKeys);
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
@@ -286,7 +277,7 @@ export class ReflectDeep {
         : Reflect.get(current, propertyKeys[propertyKeys.length - 1], receiver);
 
     return result as T | undefined;
-  }
+  };
 
   /**
    * Sets a nested property value, creating intermediate objects as needed.
@@ -301,13 +292,13 @@ export class ReflectDeep {
    * ReflectDeep.set(obj, ['a', 'b', 'c'], 'hello'); // Creates nested structure
    * obj.a.b.c; // 'hello'
    */
-  static set<T = any>(
+  export const set = <T = any>(
     target: any,
     propertyKeys: PropertyKey[],
     value: T,
     receiver: any = NO_RECEIVER
-  ): boolean {
-    expectArgs(ReflectDeep.set.name, target, propertyKeys);
+  ): boolean => {
+    expectArgs('set', target, propertyKeys);
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
@@ -339,7 +330,7 @@ export class ReflectDeep {
       common.warn(`Fail to set target${key}.`);
     }
     return result;
-  }
+  };
 
   /**
    * Creates a deep clone of an object, handling circular references and various JS types.
@@ -357,7 +348,7 @@ export class ReflectDeep {
    * circular.self = circular;
    * const clonedCircular = ReflectDeep.clone(circular); // Works without infinite recursion
    */
-  static clone<T = any>(obj: T): T {
+  export const clone = <T = any>(obj: T): T => {
     return deepClone(new WeakMap(), obj);
-  }
+  };
 }

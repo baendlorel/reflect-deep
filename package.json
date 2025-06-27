@@ -33,7 +33,6 @@
 		"test:prod": "clear & NODE_ENV=prod jest",
 		"test:pub": "clear & NODE_ENV=pub  jest",
 		"cover": "clear & jest --coverage",
-		"raw": "node tests/raw.js",
 		"build": "rm -rf dist && rollup -c"
 	},
 	"devDependencies": {
@@ -49,6 +48,7 @@
 		"@rollup/plugin-babel": "^6.0.4",
 		"@rollup/plugin-commonjs": "^28.0.6",
 		"@rollup/plugin-node-resolve": "^16.0.1",
+		"@rollup/plugin-terser": "^0.4.4",
 		"@rollup/plugin-typescript": "^12.1.3",
 		"@types/node": "^24.0.4",
 		"babel-jest": "^30.0.2",

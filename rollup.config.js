@@ -4,7 +4,7 @@ import typescript from '@rollup/plugin-typescript';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import alias from '@rollup/plugin-alias';
-import { terser } from '@rollup/plugin-terser';
+import terser from '@rollup/plugin-terser';
 import babel from '@rollup/plugin-babel';
 
 const tsconfigFile = './tsconfig.build.json';
@@ -20,7 +20,7 @@ export default [
         file: 'dist/index.js',
         format: 'cjs', // 指定为CommonJS格式
         sourcemap: true,
-        name: 'getFunctionFeatures', // 全局名称
+        name: 'ReflectDeep', // 全局名称
       },
     ],
 
