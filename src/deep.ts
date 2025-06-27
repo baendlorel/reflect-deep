@@ -23,7 +23,7 @@ const deepClone = (cache: WeakMap<any, any>, o: any): any => {
     return cache.get(o);
   }
 
-  // Handle boxed primitives (Number, String, Boolean, BigInt, Symbol objects)
+  // # Boxed primitives (Number, String, Boolean, BigInt, Symbol objects)
   if (o instanceof Number || o instanceof String || o instanceof Boolean) {
     return Object(o.valueOf());
   }
@@ -32,6 +32,7 @@ const deepClone = (cache: WeakMap<any, any>, o: any): any => {
     return BigInt(o.toString());
   }
 
+  // # Common types
   if (Array.isArray(o)) {
     const result: any[] = [];
     cache.set(o, result);
@@ -67,7 +68,33 @@ const deepClone = (cache: WeakMap<any, any>, o: any): any => {
     return new RegExp(o.source, o.flags);
   }
 
-  // Handle typed arrays and DataView
+  // #  Values cannot be copied
+  if (o instanceof WeakMap) {
+    common.warn('WeakMap cannot be cloned, returning the origin one');
+    return o;
+  }
+
+  if (o instanceof WeakSet) {
+    common.warn('WeakSet cannot be cloned, returning the origin one');
+    return o;
+  }
+
+  if (o instanceof WeakRef) {
+    return new WeakRef(deepClone(cache, o.deref()));
+  }
+
+  if (o instanceof Promise) {
+    common.warn('Promise cannot be cloned, returning the original Promise');
+    return o;
+  }
+
+  if (o instanceof SharedArrayBuffer) {
+    // SharedArrayBuffer cannot be cloned safely, return the same reference
+    common.warn('SharedArrayBuffer cannot be cloned, returning the same reference');
+    return o;
+  }
+
+  // # Typed arrays and DataView
   if (ArrayBuffer.isView(o)) {
     const TypedArrayConstructor = (o as any).constructor;
     if (o instanceof DataView) {
@@ -84,32 +111,12 @@ const deepClone = (cache: WeakMap<any, any>, o: any): any => {
     return o.slice(0);
   }
 
-  if (o instanceof SharedArrayBuffer) {
-    // SharedArrayBuffer cannot be cloned safely, return the same reference
-    common.warn('SharedArrayBuffer cannot be cloned, returning the same reference');
-    return o;
-  }
-
-  // Handle Node.js Buffer (if available)
+  // # Node.js Buffer (if available)
   if (typeof Buffer !== 'undefined' && o instanceof Buffer) {
     return Buffer.from(o);
   }
 
-  if (o instanceof WeakMap) {
-    common.warn('WeakMap cannot be cloned, returning the origin one');
-    return o;
-  }
-
-  if (o instanceof WeakSet) {
-    common.warn('WeakSet cannot be cloned, returning the origin one');
-    return o;
-  }
-
-  if (o instanceof WeakRef) {
-    return new WeakRef(deepClone(cache, o.deref()));
-  }
-
-  // Copy everything else
+  // # Copy everything else
   const result = Object.create(o.prototype ?? null);
   cache.set(o, result);
 
@@ -152,14 +159,14 @@ export class ReflectDeep {
   // }
 
   /**
-   * Disables warning messages.
+   * Disables warning messages for ReflectDeep operations.
    */
   static disableWarning() {
     common.setShowWarn(false);
   }
 
   /**
-   * Enables warning messages.
+   * Enables warning messages for ReflectDeep operations.
    */
   static enableWarning() {
     common.setShowWarn(true);
@@ -321,6 +328,8 @@ export class ReflectDeep {
 
   /**
    * Creates a deep clone of an object, handling circular references and various JS types.
+   *
+   * ! Will not check depth of the object, so be careful with very deep objects.
    * @param obj - Object to clone.
    * @returns A deep clone of the object.
    * @example

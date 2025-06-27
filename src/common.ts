@@ -30,10 +30,4 @@ export const expectArgs = (f: string, o: any, keys: PropertyKey[]) => {
   if (keys.length === 0) {
     throw typeErr(f, `called with empty keys array`);
   }
-  for (let i = 0; i < keys.length; i++) {
-    const k = keys[i];
-    if (typeof k !== 'string' && typeof k !== 'symbol' && typeof k !== 'number') {
-      throw typeErr(f, `called with invalid key: ${String(k)}`);
-    }
-  }
 };
