@@ -1,4 +1,4 @@
-import { config, DeepSetOptions, log } from './common';
+import { config, DeepSetOptions, common } from './common';
 
 type FnName = 'has' | 'get' | 'set' | 'clone' | 'setDeepSetOptions';
 
@@ -84,12 +84,12 @@ const deepClone = (cache: WeakMap<any, any>, o: any | any[]): any | any[] => {
   }
 
   if (o instanceof WeakMap) {
-    log.warn('WeakMap cannot be cloned, returning an empty one');
+    common.warn('WeakMap cannot be cloned, returning an empty one');
     return new WeakMap();
   }
 
   if (o instanceof WeakSet) {
-    log.warn('WeakSet cannot be cloned, returning an empty one');
+    common.warn('WeakSet cannot be cloned, returning an empty one');
     return new WeakSet();
   }
 
@@ -113,25 +113,43 @@ const deepClone = (cache: WeakMap<any, any>, o: any | any[]): any | any[] => {
 
 export class ReflectDeep {
   static disableWarning() {
-    config.setShowWarn(false);
+    common.setShowWarn(false);
+  }
+
+  static enableWarning() {
+    common.setShowWarn(true);
   }
 
   static setDeepSetOptions(options: DeepSetOptions) {
     if (typeof options !== 'object' || options === null) {
       throw typeErr('setDeepSetOptions', 'called with non-object options');
     }
-    switch (options.mergeStrategy) {
-      case 'keep-new':
-      case 'keep-old':
-      case 'nullish':
-      case 'replace':
-        config.deepSetOpt.mergeStrategy = options.mergeStrategy;
-        break;
-      default:
-        throw typeErr(
-          'setDeepSetOptions',
-          'called with invalid mergeStrategy, must be one of: replace, nullish, keep-old, keep-new'
-        );
+    if (typeof options.mergeStrategy === 'string') {
+      switch (options.mergeStrategy) {
+        case 'default':
+        case 'nullish':
+        case 'falsy':
+        case 'keep-old':
+          config.deepSetOpt.mergeStrategy = options.mergeStrategy;
+          break;
+        case 'custom':
+          throw typeErr(
+            'setDeepSetOptions',
+            `mergeStrategy cannot directly set to 'custom', give a predicate function instead.`
+          );
+        default:
+          throw typeErr(
+            'setDeepSetOptions',
+            `called with invalid field 'mergeStrategy', must be one of: 'default', 'nullish', 'falsy', 'keep-old' or a predicate function`
+          );
+      }
+    } else if (typeof options.mergeStrategy === 'function') {
+      config.deepSetOpt.mergeStrategy = options.mergeStrategy;
+    } else {
+      throw typeErr(
+        'setDeepSetOptions',
+        `called with invalid field 'mergeStrategy', must be one of: 'default', 'nullish', 'falsy', 'keep-old' or a predicate function`
+      );
     }
   }
 
@@ -153,11 +171,7 @@ export class ReflectDeep {
     return true;
   }
 
-  static get<T = any>(
-    target: any,
-    propertyKeys: PropertyKey[],
-    receiver?: unknown
-  ): T | undefined {
+  static get<T = any>(target: any, propertyKeys: PropertyKey[]): T | undefined {
     expectArgs('has', target, propertyKeys);
 
     let current = target;
@@ -165,7 +179,7 @@ export class ReflectDeep {
       if (!Reflect.has(current, propertyKeys[i])) {
         return undefined;
       }
-      current = Reflect.get(current, propertyKeys[i], receiver) as any;
+      current = Reflect.get(current, propertyKeys[i]) as any;
     }
     return current as T | undefined;
   }
@@ -183,7 +197,6 @@ export class ReflectDeep {
     propertyKeys: PropertyKey[],
     value: T,
     options?: {
-      receiver?: any;
       mergeStrategy?: DeepSetOptions['mergeStrategy'];
     }
   ): boolean {
@@ -195,7 +208,7 @@ export class ReflectDeep {
         const result = Reflect.set(current, propertyKeys[i], {});
         if (!result) {
           const key = keyChain(propertyKeys.slice(0, i + 1));
-          log.warn(`Fail to set target${key}.`);
+          common.warn(`Fail to set target${key}.`);
           return false;
         }
       }
@@ -207,16 +220,15 @@ export class ReflectDeep {
         current === null
       ) {
         const key = keyChain(propertyKeys.slice(0, i + 1));
-        log.warn(`Cannot set target${key} because it is not an object.`);
+        common.warn(`Cannot set target${key} because it is not an object.`);
         return false;
       }
     }
 
-    // 最后一步set要应用
     const result = Reflect.set(current, propertyKeys[propertyKeys.length - 1], value);
     if (!result) {
       const key = keyChain(propertyKeys);
-      log.warn(`Fail to set target${key}.`);
+      common.warn(`Fail to set target${key}.`);
     }
     return result;
   }
