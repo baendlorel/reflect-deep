@@ -1,6 +1,6 @@
 {
 	"name": "reflect-deep",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"author": {
 		"name": "KasukabeTsumugi",
 		"email": "futami16237@gmail.com"
@@ -34,7 +34,6 @@
 		"test:pub": "clear & NODE_ENV=pub  jest",
 		"cover": "clear & jest --coverage",
 		"raw": "node tests/raw.js",
-		"build-old": "rm -rf dist && tsc && tsc-alias && uglifyjs ./dist/index.js -c -m -o ./dist/get-function-features.min.js",
 		"build": "rm -rf dist && rollup -c"
 	},
 	"devDependencies": {
@@ -59,8 +58,7 @@
 		"rollup": "^4.44.1",
 		"rollup-plugin-dts": "^6.2.1",
 		"tsc-alias": "^1.8.16",
-		"tslib": "^2.8.1",
-		"uglify-js": "^3.19.3"
+		"tslib": "^2.8.1"
 	},
 	"license": "MIT"
 }

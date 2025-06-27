@@ -145,6 +145,8 @@ type ReachResult = {
   index: number;
 };
 
+const NO_RECEIVER = Symbol('no-receiver');
+
 export class ReflectDeep {
   constructor() {
     throw new TypeError('ReflectDeep is not a constructor.');
@@ -213,7 +215,11 @@ export class ReflectDeep {
    * ReflectDeep.reach(obj, ['a', 'x']);     // { value: { b: { c: 'hello' } }, index: 0 }
    * ReflectDeep.reach(obj, ['d', 'x']);     // { value:  { a: { b: { c: 'hello' } } }, index: -1 }
    */
-  static reach(target: object, propertyKeys: PropertyKey[], receiver?: any): ReachResult {
+  static reach(
+    target: object,
+    propertyKeys: PropertyKey[],
+    receiver: any = NO_RECEIVER
+  ): ReachResult {
     expectArgs(ReflectDeep.reach.name, target, propertyKeys);
 
     let current = target;
@@ -223,7 +229,12 @@ export class ReflectDeep {
       }
 
       if (i === propertyKeys.length - 1) {
-        return { value: Reflect.get(current, propertyKeys[i], receiver), index: i };
+        const value =
+          receiver === NO_RECEIVER
+            ? Reflect.get(current, propertyKeys[i])
+            : Reflect.get(current, propertyKeys[i], receiver);
+
+        return { value, index: i };
       }
 
       current = Reflect.get(current, propertyKeys[i]);
@@ -251,7 +262,7 @@ export class ReflectDeep {
   static get<T = any>(
     target: any,
     propertyKeys: PropertyKey[],
-    receiver?: any
+    receiver: any = NO_RECEIVER
   ): T | undefined {
     expectArgs(ReflectDeep.get.name, target, propertyKeys);
 
@@ -267,9 +278,12 @@ export class ReflectDeep {
       }
     }
 
-    return Reflect.get(current, propertyKeys[propertyKeys.length - 1], receiver) as
-      | T
-      | undefined;
+    const result =
+      receiver === NO_RECEIVER
+        ? Reflect.get(current, propertyKeys[propertyKeys.length - 1])
+        : Reflect.get(current, propertyKeys[propertyKeys.length - 1], receiver);
+
+    return result as T | undefined;
   }
 
   /**
@@ -289,7 +303,7 @@ export class ReflectDeep {
     target: any,
     propertyKeys: PropertyKey[],
     value: T,
-    receiver?: any
+    receiver: any = NO_RECEIVER
   ): boolean {
     expectArgs(ReflectDeep.set.name, target, propertyKeys);
 
@@ -313,12 +327,11 @@ export class ReflectDeep {
       }
     }
 
-    const result = Reflect.set(
-      current,
-      propertyKeys[propertyKeys.length - 1],
-      value,
-      receiver
-    );
+    const result =
+      receiver === NO_RECEIVER
+        ? Reflect.set(current, propertyKeys[propertyKeys.length - 1], value)
+        : Reflect.set(current, propertyKeys[propertyKeys.length - 1], value, receiver);
+
     if (!result) {
       const key = keyChain(propertyKeys);
       common.warn(`Fail to set target${key}.`);
