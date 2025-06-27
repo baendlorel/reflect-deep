@@ -1,4 +1,4 @@
-import { config, DeepSetOptions, common } from './common';
+import { config, common } from './common';
 
 type FnName = 'has' | 'get' | 'set' | 'clone' | 'setDeepSetOptions';
 
@@ -112,6 +112,10 @@ const deepClone = (cache: WeakMap<any, any>, o: any | any[]): any | any[] => {
 };
 
 export class ReflectDeep {
+  static getConfig() {
+    return deepClone(new WeakMap(), config);
+  }
+
   static disableWarning() {
     common.setShowWarn(false);
   }
@@ -120,44 +124,6 @@ export class ReflectDeep {
     common.setShowWarn(true);
   }
 
-  static setDeepSetOptions(options: DeepSetOptions) {
-    if (typeof options !== 'object' || options === null) {
-      throw typeErr('setDeepSetOptions', 'called with non-object options');
-    }
-    if (typeof options.mergeStrategy === 'string') {
-      switch (options.mergeStrategy) {
-        case 'default':
-        case 'nullish':
-        case 'falsy':
-        case 'keep-old':
-          config.deepSetOpt.mergeStrategy = options.mergeStrategy;
-          break;
-        case 'custom':
-          throw typeErr(
-            'setDeepSetOptions',
-            `mergeStrategy cannot directly set to 'custom', give a predicate function instead.`
-          );
-        default:
-          throw typeErr(
-            'setDeepSetOptions',
-            `called with invalid field 'mergeStrategy', must be one of: 'default', 'nullish', 'falsy', 'keep-old' or a predicate function`
-          );
-      }
-    } else if (typeof options.mergeStrategy === 'function') {
-      config.deepSetOpt.mergeStrategy = options.mergeStrategy;
-    } else {
-      throw typeErr(
-        'setDeepSetOptions',
-        `called with invalid field 'mergeStrategy', must be one of: 'default', 'nullish', 'falsy', 'keep-old' or a predicate function`
-      );
-    }
-  }
-
-  /**
-   * Equivalent to `propertyKey in target`.
-   * @param target Object that contains the property on itself or in its prototype chain.
-   * @param propertyKey Name of the property.
-   */
   static has(target: object, propertyKeys: PropertyKey[]): boolean {
     expectArgs('has', target, propertyKeys);
 
@@ -171,39 +137,35 @@ export class ReflectDeep {
     return true;
   }
 
-  static get<T = any>(target: any, propertyKeys: PropertyKey[]): T | undefined {
+  static get<T = any>(
+    target: any,
+    propertyKeys: PropertyKey[],
+    reciever?: any
+  ): T | undefined {
     expectArgs('has', target, propertyKeys);
 
     let current = target;
-    for (let i = 0; i <= propertyKeys.length - 1; i++) {
+    for (let i = 0; i <= propertyKeys.length - 2; i++) {
       if (!Reflect.has(current, propertyKeys[i])) {
         return undefined;
       }
       current = Reflect.get(current, propertyKeys[i]) as any;
     }
-    return current as T | undefined;
+    return Reflect.get(current, propertyKeys[propertyKeys.length - 1], reciever) as
+      | T
+      | undefined;
   }
 
-  /**
-   * Sets a value to a deep property of an object.
-   * @param target The target object.
-   * @param propertyKeys The property key to set.
-   * @param value The value to set.
-   * @param options Options for setting the value.
-   * @returns True if the value was set, false otherwise.
-   */
   static set<T = any>(
     target: any,
     propertyKeys: PropertyKey[],
     value: T,
-    options?: {
-      mergeStrategy?: DeepSetOptions['mergeStrategy'];
-    }
+    receiver?: any
   ): boolean {
     expectArgs('set', target, propertyKeys);
 
     let current = target;
-    for (let i = 0; i < propertyKeys.length - 1; i++) {
+    for (let i = 0; i <= propertyKeys.length - 2; i++) {
       if (!Reflect.has(current, propertyKeys[i])) {
         const result = Reflect.set(current, propertyKeys[i], {});
         if (!result) {
@@ -225,7 +187,12 @@ export class ReflectDeep {
       }
     }
 
-    const result = Reflect.set(current, propertyKeys[propertyKeys.length - 1], value);
+    const result = Reflect.set(
+      current,
+      propertyKeys[propertyKeys.length - 1],
+      value,
+      receiver
+    );
     if (!result) {
       const key = keyChain(propertyKeys);
       common.warn(`Fail to set target${key}.`);
