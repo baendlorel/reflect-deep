@@ -220,9 +220,8 @@ describe('ReflectDeep 深度反射测试', () => {
     });
   });
 
-  fdescribe('set() 设置嵌套属性测试', () => {
+  describe('set() 设置嵌套属性测试', () => {
     it('应该设置存在路径的属性', () => {
-      ReflectDeep.enableWarning();
       const obj = { a: { b: { c: 'old' } } };
       const result = ReflectDeep.set(obj, ['a', 'b', 'c'], 'new');
 
@@ -383,7 +382,7 @@ describe('ReflectDeep 深度反射测试', () => {
       expect(ReflectDeep.has(obj, [sym1, sym2])).toBe(true);
     });
 
-    it('应该处理原型链上的属性', () => {
+    it('应该处理原型链上的属性1', () => {
       function Parent(this: any) {}
       Parent.prototype.inherited = 'parent';
 
@@ -394,9 +393,36 @@ describe('ReflectDeep 深度反射测试', () => {
 
       const obj = new (Child as any)();
       const cloned = ReflectDeep.clone(obj);
+      console.log('1', obj, cloned);
 
       expect(cloned.own).toBe('child');
       expect(cloned.inherited).toBe('parent');
+      expect(cloned).not.toBe(obj);
+    });
+
+    it('应该处理原型链上的属性2', () => {
+      function Parent(this: any) {}
+      Parent.prototype.inherited = 'Parent';
+
+      const s = Symbol();
+      function Child(this: any) {
+        this.own = 'Child';
+      }
+      Child.prototype = Object.create(Parent.prototype);
+
+      function GrandChild(this: any) {
+        this.self = 'GrandChild';
+      }
+      GrandChild.prototype = Object.create(Child.prototype);
+
+      const obj = new (GrandChild as any)();
+      const cloned = ReflectDeep.clone(obj);
+
+      console.log('2', obj, cloned);
+      // expect(cloned).toBe({});
+      console.log(cloned.prototype);
+      expect(cloned.self).toBe('GrandChild');
+      expect(cloned.inherited).toBe('Parent');
       expect(cloned).not.toBe(obj);
     });
 

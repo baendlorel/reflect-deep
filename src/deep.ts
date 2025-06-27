@@ -37,7 +37,9 @@ const deepClone = (cache: WeakMap<any, any>, o: any): any => {
     const result: any[] = [];
     cache.set(o, result);
     for (let i = 0; i < o.length; i++) {
-      result[i] = deepClone(cache, o[i]);
+      if (i in o) {
+        result[i] = deepClone(cache, o[i]);
+      }
     }
     return result;
   }
@@ -117,7 +119,7 @@ const deepClone = (cache: WeakMap<any, any>, o: any): any => {
   }
 
   // # Copy everything else
-  const result = Object.create(o.prototype ?? null);
+  const result = Object.create(Reflect.getPrototypeOf(o));
   cache.set(o, result);
 
   const keys = Reflect.ownKeys(o);
