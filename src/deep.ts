@@ -1,9 +1,9 @@
-import { config, DeepSetOptions } from './common';
+import { config, DeepSetOptions, log } from './common';
 
-type FnName = 'has' | 'get' | 'set' | 'clone';
+type FnName = 'has' | 'get' | 'set' | 'clone' | 'setDeepSetOptions';
 
 const typeErr = (fnName: FnName, msg: string) => {
-  return new TypeError(`${fnName} ${msg}`);
+  return new TypeError(`Deep.${fnName} ${msg}`);
 };
 
 const expectArgs = (f: FnName, o: any, keys: PropertyKey[]) => {
@@ -84,12 +84,12 @@ const deepClone = (cache: WeakMap<any, any>, o: any | any[]): any | any[] => {
   }
 
   if (o instanceof WeakMap) {
-    console.warn('WeakMap cannot be cloned, returning an empty one');
+    log.warn('WeakMap cannot be cloned, returning an empty one');
     return new WeakMap();
   }
 
   if (o instanceof WeakSet) {
-    console.warn('WeakSet cannot be cloned, returning an empty one');
+    log.warn('WeakSet cannot be cloned, returning an empty one');
     return new WeakSet();
   }
 
@@ -118,7 +118,7 @@ export class ReflectDeep {
 
   static setDeepSetOptions(options: DeepSetOptions) {
     if (typeof options !== 'object' || options === null) {
-      throw new TypeError('Deep.setDeepSetOptions called with non-object options');
+      throw typeErr('setDeepSetOptions', 'called with non-object options');
     }
     switch (options.mergeStrategy) {
       case 'keep-new':
@@ -128,8 +128,9 @@ export class ReflectDeep {
         config.deepSetOpt.mergeStrategy = options.mergeStrategy;
         break;
       default:
-        throw new TypeError(
-          'Deep.setDeepSetOptions called with invalid mergeStrategy, must be one of: replace, nullish, keep-old, keep-new'
+        throw typeErr(
+          'setDeepSetOptions',
+          'called with invalid mergeStrategy, must be one of: replace, nullish, keep-old, keep-new'
         );
     }
   }
@@ -139,13 +140,35 @@ export class ReflectDeep {
    * @param target Object that contains the property on itself or in its prototype chain.
    * @param propertyKey Name of the property.
    */
-  static has(target: object, propertyKeys: PropertyKey[]): boolean {}
+  static has(target: object, propertyKeys: PropertyKey[]): boolean {
+    expectArgs('has', target, propertyKeys);
 
-  static get<T extends object, P extends PropertyKey>(
-    target: T,
-    propertyKeys: P[],
+    let current = target;
+    for (let i = 0; i < propertyKeys.length; i++) {
+      if (!Reflect.has(current, propertyKeys[i])) {
+        return false;
+      }
+      current = Reflect.get(current, propertyKeys[i]) as any;
+    }
+    return true;
+  }
+
+  static get<T = any>(
+    target: any,
+    propertyKeys: PropertyKey[],
     receiver?: unknown
-  ): P extends keyof T ? T[P] : any {}
+  ): T | undefined {
+    expectArgs('has', target, propertyKeys);
+
+    let current = target;
+    for (let i = 0; i <= propertyKeys.length - 1; i++) {
+      if (!Reflect.has(current, propertyKeys[i])) {
+        return undefined;
+      }
+      current = Reflect.get(current, propertyKeys[i], receiver) as any;
+    }
+    return current as T | undefined;
+  }
 
   /**
    * Sets a value to a deep property of an object.
@@ -155,26 +178,26 @@ export class ReflectDeep {
    * @param options Options for setting the value.
    * @returns True if the value was set, false otherwise.
    */
-  static set<T extends object, P extends PropertyKey>(
-    target: T,
-    propertyKeys: P[],
-    value: P extends keyof T ? T[P] : any,
+  static set<T = any>(
+    target: any,
+    propertyKeys: PropertyKey[],
+    value: T,
     options?: {
       receiver?: any;
-      override?: boolean;
+      mergeStrategy?: DeepSetOptions['mergeStrategy'];
     }
   ): boolean {
-    expectArgs('Deep', 'set', target, propertyKeys);
+    expectArgs('set', target, propertyKeys);
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
-      if (
-        !Reflect.has(current, propertyKeys[i]) &&
-        !Reflect.set(current, propertyKeys[i], {})
-      ) {
-        const key = keyChain(propertyKeys.slice(0, i + 1));
-        console.warn(`Not writable: metadata${key}.`);
-        return;
+      if (!Reflect.has(current, propertyKeys[i])) {
+        const result = Reflect.set(current, propertyKeys[i], {});
+        if (!result) {
+          const key = keyChain(propertyKeys.slice(0, i + 1));
+          log.warn(`Fail to set target${key}.`);
+          return false;
+        }
       }
 
       // But if the current key is not an object, we cannot set a nested value
@@ -184,15 +207,18 @@ export class ReflectDeep {
         current === null
       ) {
         const key = keyChain(propertyKeys.slice(0, i + 1));
-        console.warn(`Cannot set nested metadata${key} because it is not an object.`);
-        return;
+        log.warn(`Cannot set target${key} because it is not an object.`);
+        return false;
       }
     }
-    if (!Reflect.set(current, propertyKeys[propertyKeys.length - 1], value)) {
+
+    // 最后一步set要应用
+    const result = Reflect.set(current, propertyKeys[propertyKeys.length - 1], value);
+    if (!result) {
       const key = keyChain(propertyKeys);
-      console.warn(`Not writable: metadata${key}.`);
+      log.warn(`Fail to set target${key}.`);
     }
-    return true;
+    return result;
   }
 
   clone<T = any>(obj: T): T {
