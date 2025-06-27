@@ -1,10 +1,10 @@
-# Reflect Deep
+# ReflectDeep
 
 A powerful TypeScript library for deep reflection operations on JavaScript objects. Provides utilities for deep cloning, nested property access, and manipulation with support for circular references and various JavaScript types.
 
 ## Features
 
-- 🔍 **Deep Property Access**: Get, set, and check nested object properties safely
+- 🔍 **Deep Property Access**: Provides functions with classic names like `get`, `set` and `has`. With original function `reach`, you can check nested object properties safely
 - 🔄 **Deep Cloning**: Clone complex objects with circular reference handling
 - 🛡️ **Type Safety**: Full TypeScript support with proper type inference
 - 🌐 **Comprehensive Type Support**: Handles Arrays, Maps, Sets, Dates, RegExp, TypedArrays, and more
@@ -34,11 +34,70 @@ const exists = ReflectDeep.has(obj, ['a', 'b', 2, 'd']); // true
 
 ## API Reference
 
-### Deep Cloning
+### get(target, propertyKeys[, receiver])
 
-#### `ReflectDeep.clone<T>(obj: T): T`
+Gets the value of a nested property safely.
+
+- `target` - Target object
+- `propertyKeys` - Array of property keys forming the path
+- `receiver` - Optional receiver for getter calls (only applies to the final property access)
+
+```typescript
+const obj = { a: { b: { c: 'hello' } } };
+const value = ReflectDeep.get(obj, ['a', 'b', 'c']); // 'hello'
+const missing = ReflectDeep.get(obj, ['a', 'x', 'y']); // undefined
+```
+
+### set(target, propertyKeys, value[, receiver])
+
+Sets a nested property value, creating intermediate objects as needed.
+
+- `target` - Target object
+- `propertyKeys` - Array of property keys forming the path
+- `value` - Value to set
+- `receiver` - Optional receiver for setter calls (only applies to the final property assignment)
+
+```typescript
+const obj = {};
+ReflectDeep.set(obj, ['a', 'b', 'c'], 'hello');
+// obj is now { a: { b: { c: 'hello' } } }
+```
+
+### has(target, propertyKeys)
+
+Checks if a nested property exists at the given path.
+
+- `target` - Target object to check
+- `propertyKeys` - Array of property keys forming the path
+
+```typescript
+const obj = { a: { b: { c: 'hello' } } };
+ReflectDeep.has(obj, ['a', 'b', 'c']); // true
+ReflectDeep.has(obj, ['a', 'b', 'd']); // false
+```
+
+### reach(target, propertyKeys[, receiver])
+
+Traverses a property path and returns the furthest reachable value with its index.
+
+- `target` - Target object to traverse
+- `propertyKeys` - Array of property keys forming the path
+- `receiver` - Optional receiver for getter calls (only applies to the final property access)
+
+Returns an object with `value` (furthest reachable value) and `index` (position reached).
+
+```typescript
+const obj = { a: { b: { c: 'hello' } } };
+
+ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2 }
+ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1 }
+```
+
+### clone(obj)
 
 Creates a deep clone of an object, handling circular references and various JavaScript types.
+
+- `obj` - Object to clone
 
 ```typescript
 const original = {
@@ -49,81 +108,25 @@ const original = {
 };
 
 const cloned = ReflectDeep.clone(original);
-// Fully independent copy with all types preserved
 ```
 
-**Supported Types:**
+**Supported:**
 
-- Primitive types (string, number, boolean, null, undefined)
-- Objects and Arrays
-- Dates and RegExp
-- Maps and Sets
-- TypedArrays (Int8Array, Float32Array, etc.)
-- ArrayBuffer and DataView
-- Node.js Buffer (when available)
-- Boxed primitives (Number, String, Boolean objects)
-- BigInt objects
-- WeakRef (with null-safe dereferencing)
+- Primitive types, Objects, Arrays
+- Properties on the prototype chain
+- Dates, RegExp, Maps, Sets
+- TypedArrays, ArrayBuffer, DataView
+- Node.js Buffer, Boxed primitives, BigInt objects
 
 **Special Handling:**
 
 - **Circular References**: Automatically detected and handled
-- **WeakMap/WeakSet**: Returns original reference (cannot be cloned)
-- **SharedArrayBuffer**: Returns original reference (unsafe to clone)
-- **Promise**: Returns original reference (stateful object)
-
-### Nested Property Operations
-
-#### `ReflectDeep.get<T>(target: any, propertyKeys: PropertyKey[], receiver?: any): T | undefined`
-
-Gets the value of a nested property safely.
-
-```typescript
-const obj = { a: { b: { c: 'hello' } } };
-const value = ReflectDeep.get(obj, ['a', 'b', 'c']); // 'hello'
-const missing = ReflectDeep.get(obj, ['a', 'x', 'y']); // undefined
-```
-
-#### `ReflectDeep.set<T>(target: any, propertyKeys: PropertyKey[], value: T, receiver?: any): boolean`
-
-Sets a nested property value, creating intermediate objects as needed.
-
-```typescript
-const obj = {};
-ReflectDeep.set(obj, ['a', 'b', 'c'], 'hello');
-// obj is now { a: { b: { c: 'hello' } } }
-```
-
-#### `ReflectDeep.has(target: object, propertyKeys: PropertyKey[]): boolean`
-
-Checks if a nested property exists at the given path.
-
-```typescript
-const obj = { a: { b: { c: 'hello' } } };
-ReflectDeep.has(obj, ['a', 'b', 'c']); // true
-ReflectDeep.has(obj, ['a', 'b', 'd']); // false
-```
-
-#### `ReflectDeep.reach(target: object, propertyKeys: PropertyKey[], receiver?: any): ReachResult`
-
-Traverses a property path and returns the furthest reachable value with its index.
-
-```typescript
-const obj = { a: { b: { c: 'hello' } } };
-
-ReflectDeep.reach(obj, ['a', 'b', 'c']);
-// { value: 'hello', index: 2 }
-
-ReflectDeep.reach(obj, ['a', 'b', 'd']);
-// { value: { c: 'hello' }, index: 1 }
-
-ReflectDeep.reach(obj, ['a', 'x']);
-// { value: { b: { c: 'hello' } }, index: 0 }
-```
+- **WeakMap/WeakSet/Promise/SharedArrayBuffer**: Returns original reference
+- **Functions**: Returns original function reference (no cloning)
 
 ### Warning Management
 
-#### `ReflectDeep.enableWarning()` / `ReflectDeep.disableWarning()`
+#### enableWarning() / disableWarning()
 
 Control warning messages for operations that cannot be performed safely.
 
@@ -143,7 +146,6 @@ circular.child = { parent: circular };
 
 const cloned = ReflectDeep.clone(circular);
 // Works without infinite recursion
-// cloned.self === cloned (circular reference preserved)
 ```
 
 ### Complex Nested Operations
@@ -172,27 +174,11 @@ const hasNotifications = ReflectDeep.has(complex, [
 ]);
 ```
 
-### Working with Different Types
-
-```typescript
-const data = {
-  timestamp: new Date(),
-  pattern: /^\d+$/,
-  mapping: new Map([['key1', 'value1']]),
-  numbers: new Set([1, 2, 3]),
-  buffer: new ArrayBuffer(8),
-  view: new DataView(new ArrayBuffer(16)),
-};
-
-const cloned = ReflectDeep.clone(data);
-// All types are properly cloned and preserved
-```
-
 ## Performance Considerations
 
-- ⚠️ **No Depth Limiting**: The library does not limit recursion depth. Be careful with very deep object structures to avoid stack overflow.
-- 🔄 **Circular Reference Cache**: Uses WeakMap for efficient circular reference detection.
-- 🎯 **Type-Specific Optimization**: Different cloning strategies for optimal performance per type.
+- ⚠️ **No Depth Limiting**: Be careful with very deep object structures to avoid stack overflow
+- 🔄 **Circular Reference Cache**: Uses WeakMap for efficient circular reference detection
+- 🎯 **Type-Specific Optimization**: Different cloning strategies for optimal performance per type
 
 ## Error Handling
 
@@ -212,9 +198,7 @@ Full TypeScript support with proper type inference:
 ```typescript
 interface User {
   name: string;
-  settings: {
-    theme: 'light' | 'dark';
-  };
+  settings: { theme: 'light' | 'dark' };
 }
 
 const user: User = { name: 'John', settings: { theme: 'dark' } };
