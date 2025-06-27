@@ -112,18 +112,46 @@ const deepClone = (cache: WeakMap<any, any>, o: any | any[]): any | any[] => {
 };
 
 export class ReflectDeep {
+  constructor() {
+    throw new TypeError('ReflectDeep is not a constructor.');
+  }
+
+  /**
+   * Gets a deep copy of the current configuration object.
+   * @returns {object} A deep clone of the configuration object.
+   */
   static getConfig() {
     return deepClone(new WeakMap(), config);
   }
 
+  /**
+   * Disables warning messages for ReflectDeep operations.
+   * When disabled, warning messages will not be logged to the console.
+   */
   static disableWarning() {
     common.setShowWarn(false);
   }
 
+  /**
+   * Enables warning messages for ReflectDeep operations.
+   * When enabled, warning messages will be logged to the console.
+   */
   static enableWarning() {
     common.setShowWarn(true);
   }
 
+  /**
+   * Checks if a nested property exists in the target object.
+   * Equivalent to checking `propertyKeys[0] in target && propertyKeys[1] in target[propertyKeys[0]]...`
+   * @param {object} target - The target object to check.
+   * @param {PropertyKey[]} propertyKeys - An array of property keys representing the path to the nested property.
+   * @returns {boolean} `true` if the nested property exists, `false` otherwise.
+   * @throws {TypeError} If target is not an object, propertyKeys is not an array, or contains invalid keys.
+   * @example
+   * const obj = { a: { b: { c: 1 } } };
+   * ReflectDeep.has(obj, ['a', 'b', 'c']); // true
+   * ReflectDeep.has(obj, ['a', 'b', 'd']); // false
+   */
   static has(target: object, propertyKeys: PropertyKey[]): boolean {
     expectArgs('has', target, propertyKeys);
 
@@ -137,6 +165,19 @@ export class ReflectDeep {
     return true;
   }
 
+  /**
+   * Gets the value of a nested property from the target object.
+   * @template T - The expected return type of the nested property.
+   * @param {any} target - The target object to get the property from.
+   * @param {PropertyKey[]} propertyKeys - An array of property keys representing the path to the nested property.
+   * @param {any} [reciever] - The value of `this` provided for the call to the getter if a getter is encountered.
+   * @returns {T | undefined} The value of the nested property, or `undefined` if the property doesn't exist.
+   * @throws {TypeError} If target is not an object, propertyKeys is not an array, or contains invalid keys.
+   * @example
+   * const obj = { a: { b: { c: 'hello' } } };
+   * ReflectDeep.get<string>(obj, ['a', 'b', 'c']); // 'hello'
+   * ReflectDeep.get(obj, ['a', 'b', 'd']); // undefined
+   */
   static get<T = any>(
     target: any,
     propertyKeys: PropertyKey[],
@@ -156,6 +197,23 @@ export class ReflectDeep {
       | undefined;
   }
 
+  /**
+   * Sets the value of a nested property in the target object.
+   * Creates intermediate objects as needed if they don't exist.
+   * @template T - The type of the value being set.
+   * @param {any} target - The target object to set the property on.
+   * @param {PropertyKey[]} propertyKeys - An array of property keys representing the path to the nested property.
+   * @param {T} value - The value to set.
+   * @param {any} [receiver] - The value of `this` provided for the call to the setter if a setter is encountered.
+   * @returns {boolean} `true` if the property was set successfully, `false` otherwise.
+   * @throws {TypeError} If target is not an object, propertyKeys is not an array, or contains invalid keys.
+   * @example
+   * const obj = {};
+   * ReflectDeep.set(obj, ['a', 'b', 'c'], 'hello'); // true, obj becomes { a: { b: { c: 'hello' } } }
+   * 
+   * const readOnlyObj = Object.freeze({ a: {} });
+   * ReflectDeep.set(readOnlyObj, ['a', 'b'], 'value'); // false, cannot set on frozen object
+   */
   static set<T = any>(
     target: any,
     propertyKeys: PropertyKey[],
@@ -200,6 +258,23 @@ export class ReflectDeep {
     return result;
   }
 
+  /**
+   * Creates a deep clone of the given object.
+   * Handles various JavaScript types including primitives, objects, arrays, Maps, Sets, Dates, RegExp, Errors, etc.
+   * Uses a WeakMap to handle circular references properly.
+   * @template T - The type of the object being cloned.
+   * @param {T} obj - The object to clone.
+   * @returns {T} A deep clone of the input object.
+   * @example
+   * const original = { a: { b: [1, 2, { c: 3 }] } };
+   * const cloned = ReflectDeep.clone(original);
+   * cloned.a.b[2].c = 4; // original.a.b[2].c is still 3
+   * 
+   * // Handles circular references
+   * const circular = { self: null };
+   * circular.self = circular;
+   * const clonedCircular = ReflectDeep.clone(circular); // Works without infinite recursion
+   */
   clone<T = any>(obj: T): T {
     return deepClone(new WeakMap(), obj);
   }
