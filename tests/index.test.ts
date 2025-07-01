@@ -4,8 +4,6 @@ import { describe, it, fit, env, Env } from './injected-jest';
 import { ReflectDeep } from '../src';
 
 describe('ReflectDeep 深度反射测试', () => {
-  ReflectDeep.disableWarning(); // 禁用警告以避免测试输出干扰
-
   describe('clone() 深拷贝测试', () => {
     it('应该克隆基本数据类型', () => {
       expect(ReflectDeep.clone(null)).toBe(null);
@@ -386,11 +384,218 @@ describe('ReflectDeep 深度反射测试', () => {
     });
   });
 
-  describe('警告系统测试', () => {
-    it('应该能够启用和禁用警告', () => {
-      // 这里我们不能直接测试 console.warn，但可以测试方法存在且不抛出错误
-      expect(() => ReflectDeep.disableWarning()).not.toThrow();
-      expect(() => ReflectDeep.enableWarning()).not.toThrow();
+  describe('keys() 获取所有键测试', () => {
+    it('应该获取对象自身的所有键', () => {
+      const obj = { a: 1, b: 2, [Symbol('test')]: 'symbol' };
+      const keys = ReflectDeep.keys(obj);
+
+      expect(keys).toContain('a');
+      expect(keys).toContain('b');
+      expect(keys.some((k) => typeof k === 'symbol')).toBe(true);
+      expect(keys.length).toBe(3);
+    });
+
+    it('应该获取原型链上的所有键', () => {
+      function Parent(this: any) {}
+      Parent.prototype.parentProp = 'parent';
+      Parent.prototype.sharedProp = 'fromParent';
+
+      function Child(this: any) {
+        this.ownProp = 'child';
+        this.sharedProp = 'fromChild'; // 覆盖父类属性
+      }
+      Child.prototype = Object.create(Parent.prototype);
+      Child.prototype.childProp = 'child';
+
+      const obj = new (Child as any)();
+      const keys = ReflectDeep.keys(obj);
+
+      expect(keys).toContain('ownProp');
+      expect(keys).toContain('childProp');
+      expect(keys).toContain('parentProp');
+      expect(keys).toContain('sharedProp');
+      expect(keys).toContain('constructor');
+    });
+
+    it('应该处理数组对象', () => {
+      const arr = [1, 2, 3];
+      const keys = ReflectDeep.keys(arr);
+
+      expect(keys).toContain('0');
+      expect(keys).toContain('1');
+      expect(keys).toContain('2');
+      expect(keys).toContain('length');
+      // 数组原型上的方法
+      expect(keys).toContain('push');
+      expect(keys).toContain('pop');
+      expect(keys).toContain('forEach');
+    });
+
+    it('应该处理空对象', () => {
+      const obj = {};
+      const keys = ReflectDeep.keys(obj);
+
+      // 空对象应该包含 Object.prototype 上的方法
+      expect(keys).toContain('toString');
+      expect(keys).toContain('valueOf');
+      expect(keys).toContain('hasOwnProperty');
+      expect(keys).toContain('constructor');
+    });
+
+    it('应该处理带有不可枚举属性的对象', () => {
+      const obj = { visible: 'yes' };
+      Object.defineProperty(obj, 'hidden', {
+        value: 'secret',
+        enumerable: false,
+        writable: true,
+        configurable: true,
+      });
+
+      const keys = ReflectDeep.keys(obj);
+
+      expect(keys).toContain('visible');
+      expect(keys).toContain('hidden'); // keys() 应该包含不可枚举属性
+    });
+
+    it('应该在参数无效时抛出错误', () => {
+      expect(() => ReflectDeep.keys(null as any)).toThrow(TypeError);
+      expect(() => ReflectDeep.keys(undefined as any)).toThrow(TypeError);
+      expect(() => ReflectDeep.keys('string' as any)).toThrow(TypeError);
+      expect(() => ReflectDeep.keys(123 as any)).toThrow(TypeError);
+    });
+  });
+
+  describe('groupedKeys() 获取分层键测试', () => {
+    it('应该返回分层的键信息', () => {
+      const obj = { own: 'property' };
+      const result = ReflectDeep.groupedKeys(obj);
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(1); // 至少包含对象本身和 Object.prototype
+
+      // 第一层应该是对象自身
+      expect(result[0].object).toBe(obj);
+      expect(result[0].keys).toContain('own');
+
+      // 最后一层应该是 Object.prototype
+      const lastLayer = result[result.length - 1];
+      expect(lastLayer.keys).toContain('toString');
+      expect(lastLayer.keys).toContain('valueOf');
+    });
+
+    it('应该正确处理原型链层次', () => {
+      function GrandParent(this: any) {}
+      GrandParent.prototype.grandProp = 'grand';
+
+      function Parent(this: any) {}
+      Parent.prototype = Object.create(GrandParent.prototype);
+      Parent.prototype.parentProp = 'parent';
+
+      function Child(this: any) {
+        this.ownProp = 'child';
+      }
+      Child.prototype = Object.create(Parent.prototype);
+      Child.prototype.childProp = 'child';
+
+      const obj = new (Child as any)();
+      const result = ReflectDeep.groupedKeys(obj);
+
+      // 应该有多个层级
+      expect(result.length).toBeGreaterThanOrEqual(4);
+
+      // 第一层：对象自身
+      expect(result[0].object).toBe(obj);
+      expect(result[0].keys).toContain('ownProp');
+
+      // 找到包含各种属性的层级
+      const allKeys = result.flatMap((layer) => layer.keys);
+      expect(allKeys).toContain('ownProp');
+      expect(allKeys).toContain('childProp');
+      expect(allKeys).toContain('parentProp');
+      expect(allKeys).toContain('grandProp');
+    });
+
+    it('应该包含每层的目标对象引用', () => {
+      function Parent(this: any) {}
+      Parent.prototype.parentMethod = function () {};
+
+      function Child(this: any) {
+        this.childProp = 'value';
+      }
+      Child.prototype = Object.create(Parent.prototype);
+
+      const obj = new (Child as any)();
+      const result = ReflectDeep.groupedKeys(obj);
+
+      // 验证每一层都有正确的 target 引用
+      expect(result[0].object).toBe(obj);
+      expect(result[1].object).toBe(Child.prototype);
+      expect(result[2].object).toBe(Parent.prototype);
+
+      // 验证每一层的 keys 数组包含相应的属性
+      expect(result[0].keys).toContain('childProp');
+      expect(result[2].keys).toContain('parentMethod');
+    });
+
+    it('应该处理数组的原型链', () => {
+      const arr = [1, 2, 3];
+      const result = ReflectDeep.groupedKeys(arr);
+
+      // 第一层是数组自身
+      expect(result[0].object).toBe(arr);
+      expect(result[0].keys).toContain('0');
+      expect(result[0].keys).toContain('1');
+      expect(result[0].keys).toContain('2');
+      expect(result[0].keys).toContain('length');
+
+      // 应该包含 Array.prototype 层
+      const arrayProtoLayer = result.find(
+        (layer) => layer.keys.includes('push') && layer.keys.includes('pop')
+      );
+      expect(arrayProtoLayer).toBeDefined();
+    });
+
+    it('应该处理具有 Symbol 键的对象', () => {
+      const sym1 = Symbol('test1');
+      const sym2 = Symbol('test2');
+
+      const obj = { [sym1]: 'value1' };
+
+      // 在原型上添加 Symbol 属性
+      const proto = { [sym2]: 'value2' };
+      Object.setPrototypeOf(obj, proto);
+
+      const result = ReflectDeep.groupedKeys(obj);
+
+      // 第一层应该包含 sym1
+      expect(result[0].keys.some((k) => typeof k === 'symbol')).toBe(true);
+
+      // 第二层应该包含 sym2
+      expect(result[1].keys.some((k) => typeof k === 'symbol')).toBe(true);
+    });
+
+    it('应该在参数无效时抛出错误', () => {
+      expect(() => ReflectDeep.groupedKeys(null as any)).toThrow(TypeError);
+      expect(() => ReflectDeep.groupedKeys(undefined as any)).toThrow(TypeError);
+      expect(() => ReflectDeep.groupedKeys('string' as any)).toThrow(TypeError);
+      expect(() => ReflectDeep.groupedKeys(42 as any)).toThrow(TypeError);
+    });
+
+    it('应该正确处理空对象的原型链', () => {
+      const obj = {};
+      const result = ReflectDeep.groupedKeys(obj);
+
+      expect(result.length).toBeGreaterThanOrEqual(2);
+
+      // 第一层是空对象
+      expect(result[0].object).toBe(obj);
+      expect(result[0].keys.length).toBe(0);
+
+      // 应该包含 Object.prototype
+      const objectProtoLayer = result.find(
+        (layer) => layer.keys.includes('toString') && layer.keys.includes('valueOf')
+      );
+      expect(objectProtoLayer).toBeDefined();
     });
   });
 

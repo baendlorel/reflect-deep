@@ -13,10 +13,11 @@ export default tseslint.config(
   tseslint.configs.stylistic,
   {
     ignores: [
-      'tests/**/*', // 排除 test 文件夹
       'node_modules/**/*', // 排除 node_modules（通常默认排除）
-      '*.config.js', // 排除所有配置文件
+      'dist/**/*', // 排除 test 文件夹
+      'tests/**/*', // 排除 test 文件夹
       'coverage/**/*', // 排除测试覆盖率文件夹
+      '*.config.js', // 排除所有配置文件
     ],
   },
   {
