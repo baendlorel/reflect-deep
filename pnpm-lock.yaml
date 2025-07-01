@@ -35,9 +35,6 @@ importers:
       '@jest/globals':
         specifier: ^30.0.3
         version: 30.0.3
-      '@jest/reporters':
-        specifier: ^30.0.2
-        version: 30.0.2
       '@rollup/plugin-alias':
         specifier: ^5.1.1
         version: 5.1.1(rollup@4.44.1)

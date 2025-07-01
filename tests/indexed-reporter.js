@@ -1,8 +1,5 @@
-import { DefaultReporter } from '@jest/reporters';
-
-export default class CustomReporter extends DefaultReporter {
+class CustomReporter {
   constructor(globalConfig, reporterOptions, reporterContext) {
-    super(globalConfig, reporterOptions, reporterContext);
     this._globalConfig = globalConfig;
     this._options = reporterOptions;
     this._context = reporterContext;
@@ -10,11 +7,9 @@ export default class CustomReporter extends DefaultReporter {
 
   onRunComplete(testContexts, results) {
     // 先调用父类的方法，显示默认的测试结果
-    super.onRunComplete(testContexts, results);
 
     // 然后添加你的自定义输出
     console.log('\n--- Custom Reporter Additional Info ---');
-    console.log('Test Contexts:', testContexts);
     console.log('Results Summary:', {
       numTotalTests: results.numTotalTests,
       numPassedTests: results.numPassedTests,
@@ -24,17 +19,10 @@ export default class CustomReporter extends DefaultReporter {
   }
 
   onTestStart(test) {
-    // 调用父类方法
-    super.onTestStart(test);
-
-    // 添加自定义逻辑
     console.log(`🚀 Starting test: ${test.path}`);
   }
 
   onTestResult(test, testResult, aggregatedResult) {
-    // 调用父类方法
-    super.onTestResult(test, testResult, aggregatedResult);
-
     // 添加自定义逻辑
     const status = testResult.numFailingTests > 0 ? '❌' : '✅';
     console.log(`${status} Completed: ${test.path}`);
@@ -48,3 +36,16 @@ export default class CustomReporter extends DefaultReporter {
     }
   }
 }
+const CR = new Proxy(CustomReporter, {
+  construct(target, args) {
+    console.log('Creating an instance of CustomReporter with args:', args);
+    const inst = Reflect.construct(target, args);
+    return new Proxy(inst, {
+      get(target, prop, receiver) {
+        console.log('Reading:', prop);
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+  },
+});
+export default CR;
