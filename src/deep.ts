@@ -1,4 +1,4 @@
-import { common, isPrimitive, expectArgs } from './common';
+import { isPrimitive, expectTargetAndKeys, expectTarget } from './common';
 export namespace ReflectDeep {
   type ReachResult = {
     /**
@@ -18,20 +18,6 @@ export namespace ReflectDeep {
   };
 
   const NO_RECEIVER = Symbol('no-receiver');
-
-  const keyChain = (keys: PropertyKey[]) =>
-    keys
-      .map((k) => {
-        switch (typeof k) {
-          case 'string':
-            return `['${k}']`;
-          case 'symbol':
-            return `[${String(k)}]`;
-          default:
-            return `[${k}]`;
-        }
-      })
-      .join('');
 
   const deepClone = (cache: WeakMap<any, any>, o: any): any => {
     if (typeof o !== 'object' || o === null) {
@@ -91,12 +77,10 @@ export namespace ReflectDeep {
 
     // #  Values cannot be copied
     if (o instanceof WeakMap) {
-      common.warn('WeakMap cannot be cloned, returning the origin one');
       return o;
     }
 
     if (o instanceof WeakSet) {
-      common.warn('WeakSet cannot be cloned, returning the origin one');
       return o;
     }
 
@@ -105,13 +89,11 @@ export namespace ReflectDeep {
     }
 
     if (o instanceof Promise) {
-      common.warn('Promise cannot be cloned, returning the original Promise');
       return o;
     }
 
     if (o instanceof SharedArrayBuffer) {
       // SharedArrayBuffer cannot be cloned safely, return the same reference
-      common.warn('SharedArrayBuffer cannot be cloned, returning the same reference');
       return o;
     }
 
@@ -155,20 +137,6 @@ export namespace ReflectDeep {
   };
 
   /**
-   * Disables warning messages for ReflectDeep operations.
-   */
-  export const disableWarning = () => {
-    common.setShowWarn(false);
-  };
-
-  /**
-   * Enables warning messages for ReflectDeep operations.
-   */
-  export const enableWarning = () => {
-    common.setShowWarn(true);
-  };
-
-  /**
    * Checks if a nested property exists at the given path.
    * @param target - Target object to check.
    * @param propertyKeys - Property path to check.
@@ -179,7 +147,7 @@ export namespace ReflectDeep {
    * ReflectDeep.has(obj, ['a', 'b', 'c']); // true
    */
   export const has = (target: object, propertyKeys: PropertyKey[]): boolean => {
-    expectArgs('has', target, propertyKeys);
+    expectTargetAndKeys('has', target, propertyKeys);
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
@@ -193,53 +161,6 @@ export namespace ReflectDeep {
       }
     }
     return Reflect.has(current, propertyKeys[propertyKeys.length - 1]);
-  };
-
-  /**
-   * Traverses a property path and returns the furthest reachable value with its index.
-   * @param target - Target object to traverse.
-   * @param propertyKeys - Property path to traverse.
-   * @param receiver - The `this` value for getter calls.
-   * @returns Object with `value` (furthest reachable value), `index` (position reached), and `reached` (whether the full path was traversed).
-   * @throws If target is not an object or propertyKeys is invalid.
-   * @example
-   * const obj = { a: { b: { c: 'hello' } } };
-   * ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2, reached: true }
-   * ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1, reached: false }
-   * ReflectDeep.reach(obj, ['a', 'x']);     // { value: { b: { c: 'hello' } }, index: 0, reached: false }
-   * ReflectDeep.reach(obj, ['d', 'x']);     // { value: { a: { b: { c: 'hello' } } }, index: -1, reached: false }
-   */
-  export const reach = (
-    target: object,
-    propertyKeys: PropertyKey[],
-    receiver: any = NO_RECEIVER
-  ): ReachResult => {
-    expectArgs('reach', target, propertyKeys);
-
-    let current = target;
-    for (let i = 0; i < propertyKeys.length; i++) {
-      if (!Reflect.has(current, propertyKeys[i])) {
-        return { value: current, index: i - 1, reached: false };
-      }
-
-      if (i === propertyKeys.length - 1) {
-        const value =
-          receiver === NO_RECEIVER
-            ? Reflect.get(current, propertyKeys[i])
-            : Reflect.get(current, propertyKeys[i], receiver);
-
-        return { value, index: i, reached: true };
-      }
-
-      current = Reflect.get(current, propertyKeys[i]);
-      if (isPrimitive(current)) {
-        return { value: current, index: i, reached: false };
-      }
-    }
-
-    // Should not reach here, but just in case
-    common.warn(`Unexpected reach: target${keyChain(propertyKeys)}`);
-    return { value: current, index: -1, reached: false };
   };
 
   /**
@@ -258,7 +179,7 @@ export namespace ReflectDeep {
     propertyKeys: PropertyKey[],
     receiver: any = NO_RECEIVER
   ): T | undefined => {
-    expectArgs('get', target, propertyKeys);
+    expectTargetAndKeys('get', target, propertyKeys);
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
@@ -299,15 +220,12 @@ export namespace ReflectDeep {
     value: T,
     receiver: any = NO_RECEIVER
   ): boolean => {
-    expectArgs('set', target, propertyKeys);
+    expectTargetAndKeys('set', target, propertyKeys);
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
       if (!Reflect.has(current, propertyKeys[i])) {
-        const result = Reflect.set(current, propertyKeys[i], {});
-        if (!result) {
-          const key = keyChain(propertyKeys.slice(0, i + 1));
-          common.warn(`Fail to set target${key}.`);
+        if (!Reflect.set(current, propertyKeys[i], {})) {
           return false;
         }
       }
@@ -315,22 +233,59 @@ export namespace ReflectDeep {
       // Check if current can be set
       current = Reflect.get(current, propertyKeys[i]);
       if (isPrimitive(current)) {
-        const key = keyChain(propertyKeys.slice(0, i + 1));
-        common.warn(`Cannot set target${key} because it is not an object.`);
         return false;
       }
     }
 
-    const result =
-      receiver === NO_RECEIVER
-        ? Reflect.set(current, propertyKeys[propertyKeys.length - 1], value)
-        : Reflect.set(current, propertyKeys[propertyKeys.length - 1], value, receiver);
+    return receiver === NO_RECEIVER
+      ? Reflect.set(current, propertyKeys[propertyKeys.length - 1], value)
+      : Reflect.set(current, propertyKeys[propertyKeys.length - 1], value, receiver);
+  };
 
-    if (!result) {
-      const key = keyChain(propertyKeys);
-      common.warn(`Fail to set target${key}.`);
+  /**
+   * Traverses a property path and returns the furthest reachable value with its index.
+   * @param target - Target object to traverse.
+   * @param propertyKeys - Property path to traverse.
+   * @param receiver - The `this` value for getter calls.
+   * @returns Object with `value` (furthest reachable value), `index` (position reached), and `reached` (whether the full path was traversed).
+   * @throws If target is not an object or propertyKeys is invalid.
+   * @example
+   * const obj = { a: { b: { c: 'hello' } } };
+   * ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2, reached: true }
+   * ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1, reached: false }
+   * ReflectDeep.reach(obj, ['a', 'x']);     // { value: { b: { c: 'hello' } }, index: 0, reached: false }
+   * ReflectDeep.reach(obj, ['d', 'x']);     // { value: { a: { b: { c: 'hello' } } }, index: -1, reached: false }
+   */
+  export const reach = (
+    target: object,
+    propertyKeys: PropertyKey[],
+    receiver: any = NO_RECEIVER
+  ): ReachResult => {
+    expectTargetAndKeys('reach', target, propertyKeys);
+
+    let current = target;
+    for (let i = 0; i < propertyKeys.length; i++) {
+      if (!Reflect.has(current, propertyKeys[i])) {
+        return { value: current, index: i - 1, reached: false };
+      }
+
+      if (i === propertyKeys.length - 1) {
+        const value =
+          receiver === NO_RECEIVER
+            ? Reflect.get(current, propertyKeys[i])
+            : Reflect.get(current, propertyKeys[i], receiver);
+
+        return { value, index: i, reached: true };
+      }
+
+      current = Reflect.get(current, propertyKeys[i]);
+      if (isPrimitive(current)) {
+        return { value: current, index: i, reached: false };
+      }
     }
-    return result;
+
+    // Should not reach here, but just in case
+    return { value: current, index: -1, reached: false };
   };
 
   /**
@@ -353,5 +308,33 @@ export namespace ReflectDeep {
     return deepClone(new WeakMap(), obj);
   };
 
-  export const equal = (a: any, b: any) => {};
+  export const keys = <T extends object>(target: T): (string | symbol)[] => {
+    expectTarget('keys', target);
+
+    const keys = new Set(Reflect.ownKeys(target));
+    let proto = Reflect.getPrototypeOf(target);
+    while (true) {
+      // * Proto chain will not contain any loop
+      if (!proto) {
+        return Array.from(keys);
+      }
+      Reflect.apply(keys.add, keys, Reflect.ownKeys(proto));
+      proto = Reflect.getPrototypeOf(proto);
+    }
+  };
+
+  export const keysWithProto = <T extends object>(target: T): (string | symbol)[] => {
+    expectTarget('keys', target);
+
+    const keys = new Set(Reflect.ownKeys(target));
+    let proto = Reflect.getPrototypeOf(target);
+    while (true) {
+      // * Proto chain will not contain any loop
+      if (!proto) {
+        return Array.from(keys);
+      }
+      Reflect.apply(keys.add, keys, Reflect.ownKeys(proto));
+      proto = Reflect.getPrototypeOf(proto);
+    }
+  };
 }
