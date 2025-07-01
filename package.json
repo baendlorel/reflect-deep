@@ -46,6 +46,7 @@
 		"@babel/preset-typescript": "^7.27.1",
 		"@eslint/js": "^9.30.0",
 		"@jest/globals": "^30.0.3",
+		"@jest/reporters": "^30.0.2",
 		"@rollup/plugin-alias": "^5.1.1",
 		"@rollup/plugin-babel": "^6.0.4",
 		"@rollup/plugin-commonjs": "^28.0.6",

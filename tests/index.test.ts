@@ -632,7 +632,6 @@ describe('ReflectDeep 深度反射测试', () => {
 
       const obj = new (Child as any)();
       const cloned = ReflectDeep.clone(obj);
-      console.log('1', obj, cloned);
 
       expect(cloned.own).toBe('child');
       expect(cloned.inherited).toBe('parent');
@@ -657,9 +656,6 @@ describe('ReflectDeep 深度反射测试', () => {
       const obj = new (GrandChild as any)();
       const cloned = ReflectDeep.clone(obj);
 
-      console.log('2', obj, cloned);
-      // expect(cloned).toBe({});
-      console.log(cloned.prototype);
       expect(cloned.self).toBe('GrandChild');
       expect(cloned.inherited).toBe('Parent');
       expect(cloned).not.toBe(obj);

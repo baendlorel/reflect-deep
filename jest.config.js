@@ -6,4 +6,5 @@ export default {
   collectCoverageFrom: ['src/**/*.{js,ts}'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'html', 'lcov'],
+  reporters: ['<rootDir>/tests/indexed-reporter.js'],
 };
