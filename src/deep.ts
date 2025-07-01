@@ -10,6 +10,11 @@ export namespace ReflectDeep {
      * The index (of the parameter `propertyKeys`) of the last successfully reached property.
      */
     index: number;
+
+    /**
+     * Whether the path was fully traversed and the final value was successfully reached.
+     */
+    reached: boolean;
   };
 
   const NO_RECEIVER = Symbol('no-receiver');
@@ -42,11 +47,7 @@ export namespace ReflectDeep {
       return Object(o.valueOf());
     }
 
-    if (
-      typeof BigInt !== 'undefined' &&
-      o instanceof Object &&
-      o.constructor === BigInt
-    ) {
+    if (typeof BigInt !== 'undefined' && o instanceof Object && o.constructor === BigInt) {
       return BigInt(o.toString());
     }
 
@@ -199,14 +200,14 @@ export namespace ReflectDeep {
    * @param target - Target object to traverse.
    * @param propertyKeys - Property path to traverse.
    * @param receiver - The `this` value for getter calls.
-   * @returns Object with `value` (furthest reachable value) and `index` (position reached).
+   * @returns Object with `value` (furthest reachable value), `index` (position reached), and `reached` (whether the full path was traversed).
    * @throws If target is not an object or propertyKeys is invalid.
    * @example
    * const obj = { a: { b: { c: 'hello' } } };
-   * ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2 }
-   * ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1 }
-   * ReflectDeep.reach(obj, ['a', 'x']);     // { value: { b: { c: 'hello' } }, index: 0 }
-   * ReflectDeep.reach(obj, ['d', 'x']);     // { value:  { a: { b: { c: 'hello' } } }, index: -1 }
+   * ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2, reached: true }
+   * ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1, reached: false }
+   * ReflectDeep.reach(obj, ['a', 'x']);     // { value: { b: { c: 'hello' } }, index: 0, reached: false }
+   * ReflectDeep.reach(obj, ['d', 'x']);     // { value: { a: { b: { c: 'hello' } } }, index: -1, reached: false }
    */
   export const reach = (
     target: object,
@@ -218,7 +219,7 @@ export namespace ReflectDeep {
     let current = target;
     for (let i = 0; i < propertyKeys.length; i++) {
       if (!Reflect.has(current, propertyKeys[i])) {
-        return { value: current, index: i - 1 };
+        return { value: current, index: i - 1, reached: false };
       }
 
       if (i === propertyKeys.length - 1) {
@@ -227,18 +228,18 @@ export namespace ReflectDeep {
             ? Reflect.get(current, propertyKeys[i])
             : Reflect.get(current, propertyKeys[i], receiver);
 
-        return { value, index: i };
+        return { value, index: i, reached: true };
       }
 
       current = Reflect.get(current, propertyKeys[i]);
       if (isPrimitive(current)) {
-        return { value: current, index: i };
+        return { value: current, index: i, reached: false };
       }
     }
 
     // Should not reach here, but just in case
     common.warn(`Unexpected reach: target${keyChain(propertyKeys)}`);
-    return { value: current, index: -1 };
+    return { value: current, index: -1, reached: false };
   };
 
   /**
@@ -351,4 +352,6 @@ export namespace ReflectDeep {
   export const clone = <T = any>(obj: T): T => {
     return deepClone(new WeakMap(), obj);
   };
+
+  export const equal = (a: any, b: any) => {};
 }

@@ -84,13 +84,13 @@ Traverses a property path and returns the furthest reachable value with its inde
 - `propertyKeys` - Array of property keys forming the path
 - `receiver` - Optional receiver for getter calls (only applies to the final property access)
 
-Returns an object with `value` (furthest reachable value) and `index` (position reached).
+Returns an object with `value` (furthest reachable value), `index` (position reached), and `reached` (whether the full path was traversed).
 
 ```typescript
 const obj = { a: { b: { c: 'hello' } } };
 
-ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2 }
-ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1 }
+ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2, reached: true }
+ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1, reached: false }
 ```
 
 ### clone(obj)

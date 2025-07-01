@@ -327,24 +327,57 @@ describe('ReflectDeep 深度反射测试', () => {
       const result = ReflectDeep.reach(testObj, ['a', 'b', 'c']);
       expect(result.value).toBe('target');
       expect(result.index).toBe(2);
+      expect(result.reached).toBe(true); // 成功到达最后的值
     });
 
     it('应该返回最远可达的值', () => {
       const result = ReflectDeep.reach(testObj, ['a', 'b', 'nonexistent']);
       expect(result.value).toEqual({ c: 'target', d: 'string' });
       expect(result.index).toBe(1);
+      expect(result.reached).toBe(false); // 未能到达最后的值
     });
 
     it('应该在遇到基本类型时停止', () => {
       const result = ReflectDeep.reach(testObj, ['a', 'b', 'd', 'further']);
       expect(result.value).toBe('string');
       expect(result.index).toBe(2);
+      expect(result.reached).toBe(false); // 在基本类型处停止，未到达最后
     });
 
     it('应该在第一级就失败时返回 index -1', () => {
       const result = ReflectDeep.reach(testObj, ['nonexistent', 'path']);
       expect(result.value).toBe(testObj);
       expect(result.index).toBe(-1);
+      expect(result.reached).toBe(false); // 第一级就失败，未到达
+    });
+
+    it('应该正确标记单层路径的到达状态', () => {
+      const result = ReflectDeep.reach(testObj, ['a']);
+      expect(result.value).toEqual({ b: { c: 'target', d: 'string' } });
+      expect(result.index).toBe(0);
+      expect(result.reached).toBe(true); // 单层路径成功到达
+    });
+
+    it('应该正确处理空路径的边界情况', () => {
+      // 注意：这个测试应该抛出错误，因为 expectArgs 会检查空数组
+      expect(() => ReflectDeep.reach(testObj, [])).toThrow(TypeError);
+    });
+
+    it('应该区分到达目标值和中途停止的情况', () => {
+      // 成功到达存在的值
+      const successResult = ReflectDeep.reach(testObj, ['a', 'b']);
+      expect(successResult.reached).toBe(true);
+      expect(successResult.index).toBe(1);
+
+      // 中途因属性不存在而停止
+      const failResult = ReflectDeep.reach(testObj, ['a', 'b', 'x', 'y']);
+      expect(failResult.reached).toBe(false);
+      expect(failResult.index).toBe(1); // 停在 'b' 这一级
+
+      // 遇到基本类型而停止
+      const primitiveResult = ReflectDeep.reach(testObj, ['a', 'b', 'c', 'charAt']);
+      expect(primitiveResult.reached).toBe(false);
+      expect(primitiveResult.index).toBe(2); // 停在 'c' 这一级（字符串是基本类型）
     });
 
     it('应该在参数无效时抛出错误', () => {
