@@ -1,4 +1,4 @@
-import { isPrimitive, expectTargetAndKeys, expectTarget, NAME } from './common';
+import { NAME, isPrimitive, expectTargetAndKeys, expectTarget } from './common';
 
 interface ReachResult {
   /**
@@ -7,7 +7,8 @@ interface ReachResult {
   value: any;
 
   /**
-   * The index (of the parameter `propertyKeys`) of the last successfully reached property.
+   * The index in `propertyKeys` of the last successfully accessed property.
+   * - Will be -1 if the first property failed.
    */
   index: number;
 
@@ -344,15 +345,20 @@ export class ReflectDeep {
   static keys<T extends object>(target: T): (string | symbol)[] {
     expectTarget('keys', target);
 
-    const keys = new Set(Reflect.ownKeys(target));
-    let proto = Reflect.getPrototypeOf(target);
+    const keySet = new Set(Reflect.ownKeys(target));
+    let proto: object | null = target;
     while (true) {
-      // * Proto chain will not contain any loop
-      if (!proto) {
-        return Array.from(keys);
-      }
-      Reflect.apply(keys.add, keys, Reflect.ownKeys(proto));
       proto = Reflect.getPrototypeOf(proto);
+
+      // * Proto chain will not contain any loop
+      if (proto) {
+        const keys = Reflect.ownKeys(proto);
+        for (let i = 0; i < keys.length; i++) {
+          keySet.add(keys[i]);
+        }
+      } else {
+        return Array.from(keySet);
+      }
     }
   }
 

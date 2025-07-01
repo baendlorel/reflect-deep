@@ -69,6 +69,8 @@ export default [
           pure_funcs: [
             'isPrimitive', // 您的工具函数
             'typeErr',
+            'expectTargetAndKeys',
+            'expectTarget',
           ],
 
           // 安全的额外优化选项

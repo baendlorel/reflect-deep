@@ -386,13 +386,13 @@ describe('ReflectDeep 深度反射测试', () => {
 
   describe('keys() 获取所有键测试', () => {
     it('应该获取对象自身的所有键', () => {
-      const obj = { a: 1, b: 2, [Symbol('test')]: 'symbol' };
+      const sym = Symbol('test');
+      const obj = { a: 1, b: 2, [sym]: 'symbol' };
       const keys = ReflectDeep.keys(obj);
 
       expect(keys).toContain('a');
       expect(keys).toContain('b');
-      expect(keys.some((k) => typeof k === 'symbol')).toBe(true);
-      expect(keys.length).toBe(3);
+      expect(keys).toContain(sym);
     });
 
     it('应该获取原型链上的所有键', () => {
@@ -601,7 +601,7 @@ describe('ReflectDeep 深度反射测试', () => {
 
   describe('构造函数测试', () => {
     it('应该在尝试实例化时抛出错误', () => {
-      expect(() => new (ReflectDeep as any)()).toThrow(TypeError);
+      expect(() => Reflect.construct(ReflectDeep, [])).toThrow(TypeError);
     });
   });
 

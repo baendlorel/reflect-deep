@@ -33,7 +33,7 @@ ReflectDeep.has(obj, ['a', 'b', 2, 'd']); // true
 
 // Property reach
 ReflectDeep.reach(obj, ['a', 'e']); // { value: null, index: 1, reached: true }
-ReflectDeep.reach(obj, ['a', 'b', 2, 'x']); // { value: { c: 3 }, index: 2, reached: false }
+ReflectDeep.reach(obj, ['a', 'b', 2, 'x']); // { value: { c: 3, d: 'new value' }, index: 2, reached: false }
 
 // Deep cloning
 const cloned = ReflectDeep.clone(obj);
