@@ -1,14 +1,16 @@
 # ReflectDeep
 
-A powerful TypeScript library for deep reflection operations on JavaScript objects. Provides utilities for deep cloning, nested property access, and manipulation with support for circular references and various JavaScript types.
+A powerful TypeScript library for deep reflection operations on JavaScript objects.
+
+Utilities for deep cloning, nested property access, and manipulation with support for circular references and various JavaScript types.
 
 ## Features
 
 - 🔍 **Deep Property Access**: Provides functions with classic names like `get`, `set` and `has`. With original function `reach`, you can check nested object properties safely
 - 🔄 **Deep Cloning**: Clone complex objects with circular reference handling
+- 🔑 **Prototype Chain Inspection**: Extract all keys from prototype chain with `keys()` or grouped by layer with `groupedKeys()`
 - 🛡️ **Type Safety**: Full TypeScript support with proper type inference
 - 🌐 **Comprehensive Type Support**: Handles Arrays, Maps, Sets, Dates, RegExp, TypedArrays, and more
-- ⚠️ **Smart Warnings**: Configurable warning system for edge cases
 - 🔗 **Circular Reference Safe**: Prevents infinite recursion in circular structures
 
 ## Installation
@@ -22,22 +24,32 @@ npm install reflect-deep
 ```typescript
 import { ReflectDeep } from 'reflect-deep';
 
-// Deep cloning
-const obj = { a: { b: [1, 2, { c: 3 }] } };
-const cloned = ReflectDeep.clone(obj);
+const obj = { a: { e: null, b: [1, 2, { c: 3 }] } };
 
 // Nested property access
-const value = ReflectDeep.get(obj, ['a', 'b', 2, 'c']); // 3
+ReflectDeep.get(obj, ['a', 'b', 2, 'c']); // 3
 ReflectDeep.set(obj, ['a', 'b', 2, 'd'], 'new value');
-const exists = ReflectDeep.has(obj, ['a', 'b', 2, 'd']); // true
+ReflectDeep.has(obj, ['a', 'b', 2, 'd']); // true
+
+// Property reach
+ReflectDeep.reach(obj, ['a', 'e']); // { value: null, index: 1, reached: true }
+ReflectDeep.reach(obj, ['a', 'b', 2, 'x']); // { value: { c: 3 }, index: 2, reached: false }
+
+// Deep cloning
+const cloned = ReflectDeep.clone(obj);
+
+// Property key extraction
+const allKeys = ReflectDeep.keys(obj); // All keys from prototype chain
+const grouped = ReflectDeep.groupedKeys(obj); // Keys grouped by prototype layer
 ```
 
 ## API Reference
 
-### get(target, propertyKeys[, receiver])
+### get<T>(target, propertyKeys[, receiver])
 
 Gets the value of a nested property safely.
 
+- `T` is the type of returned value. If given, the returned type will be inferred as `T | undefined`
 - `target` - Target object
 - `propertyKeys` - Array of property keys forming the path
 - `receiver` - Optional receiver for getter calls (only applies to the final property access)
@@ -48,10 +60,11 @@ const value = ReflectDeep.get(obj, ['a', 'b', 'c']); // 'hello'
 const missing = ReflectDeep.get(obj, ['a', 'x', 'y']); // undefined
 ```
 
-### set(target, propertyKeys, value[, receiver])
+### set<T>(target, propertyKeys, value[, receiver])
 
 Sets a nested property value, creating intermediate objects as needed.
 
+- `T` - Provide `T` to validate the type of `value`
 - `target` - Target object
 - `propertyKeys` - Array of property keys forming the path
 - `value` - Value to set
@@ -95,19 +108,60 @@ ReflectDeep.reach(obj, ['a', 'b', 'd']); // { value: { c: 'hello' }, index: 1, r
 
 ### clone(obj)
 
-Creates a deep clone of an object, handling circular references and various JavaScript types.
+Creates a deep clone of an object with circular reference handling. **Circular reference is fully supported!**
 
 - `obj` - Object to clone
 
 ```typescript
-const original = {
-  date: new Date(),
-  regex: /pattern/g,
-  map: new Map([['key', 'value']]),
-  nested: { deep: { value: 42 } },
-};
+const origin = { a: 1, b: { c: 2, o: null } };
+origin.b.o = origin; // Circular reference
+ReflectDeep.clone(origin); // Deep copy of origin
+```
 
-const cloned = ReflectDeep.clone(original);
+### keys(target)
+
+Gets all property keys (including symbols) from the target object and its prototype chain as a flattened array.
+
+- `target` - Target object to extract keys from
+
+```typescript
+const obj = { own: 'property', [Symbol('sym')]: 'symbol' };
+const allKeys = ReflectDeep.keys(obj);
+// Returns: ['own', Symbol(sym), 'toString', 'valueOf', ...]
+
+// Works with custom prototypes
+function Parent() {}
+Parent.prototype.parentProp = 'parent';
+const child = Object.create(Parent.prototype);
+child.childProp = 'child';
+const keys = ReflectDeep.keys(child);
+// ['childProp', 'parentProp', 'toString', ...]
+```
+
+### groupedKeys(target)
+
+Gets property keys grouped by prototype layer, preserving the prototype chain structure.
+
+- `target` - Target object to extract grouped keys from
+
+```typescript
+const obj = { own: 'property', [Symbol('sym')]: 'symbol' };
+const grouped = ReflectDeep.groupedKeys(obj);
+// Returns: [
+//   { keys: ['own', Symbol(sym)], object: obj },
+//   { keys: ['toString', 'valueOf', ...], object: Object.prototype },
+//   ...
+// ]
+
+// Useful for inspecting prototype chain structure
+function Parent() {}
+Parent.prototype.parentProp = 'parent';
+const child = Object.create(Parent.prototype);
+child.childProp = 'child';
+const layers = ReflectDeep.groupedKeys(child);
+// layers[0] = { keys: ['childProp'], object: child }
+// layers[1] = { keys: ['parentProp'], object: Parent.prototype }
+// layers[2] = { keys: ['toString', ...], object: Object.prototype }
 ```
 
 **Supported:**
@@ -124,28 +178,43 @@ const cloned = ReflectDeep.clone(original);
 - **WeakMap/WeakSet/Promise/SharedArrayBuffer**: Returns original reference
 - **Functions**: Returns original function reference (no cloning)
 
-### Warning Management
-
-#### enableWarning() / disableWarning()
-
-Control warning messages for operations that cannot be performed safely.
-
-```typescript
-ReflectDeep.disableWarning(); // Suppress all warnings
-ReflectDeep.enableWarning(); // Re-enable warnings
-```
-
 ## Advanced Examples
 
-### Circular Reference Handling
+### Prototype Chain Inspection
 
 ```typescript
-const circular = { name: 'parent' };
-circular.self = circular;
-circular.child = { parent: circular };
+// Create objects with custom prototype chain
+function Animal(name) {
+  this.name = name;
+}
+Animal.prototype.speak = function () {
+  return 'noise';
+};
 
-const cloned = ReflectDeep.clone(circular);
-// Works without infinite recursion
+function Dog(name, breed) {
+  Animal.call(this, name);
+  this.breed = breed;
+}
+Dog.prototype = Object.create(Animal.prototype);
+Dog.prototype.constructor = Dog;
+Dog.prototype.bark = function () {
+  return 'woof';
+};
+
+const myDog = new Dog('Rex', 'German Shepherd');
+
+// Get all keys from entire prototype chain
+const allKeys = ReflectDeep.keys(myDog);
+// ['name', 'breed', 'bark', 'speak', 'constructor', 'toString', ...]
+
+// Get keys grouped by prototype layer
+const layers = ReflectDeep.groupedKeys(myDog);
+// [
+//   { keys: ['name', 'breed'], object: myDog },
+//   { keys: ['bark', 'constructor'], object: Dog.prototype },
+//   { keys: ['speak'], object: Animal.prototype },
+//   { keys: ['toString', 'valueOf', ...], object: Object.prototype }
+// ]
 ```
 
 ### Complex Nested Operations
@@ -188,22 +257,6 @@ The library throws `TypeError` for invalid inputs:
 // These will throw TypeError:
 ReflectDeep.get(null, ['key']); // non-object target
 ReflectDeep.set({}, []); // empty keys array
-ReflectDeep.has({}, [Symbol(), null]); // invalid key type
-```
-
-## TypeScript Support
-
-Full TypeScript support with proper type inference:
-
-```typescript
-interface User {
-  name: string;
-  settings: { theme: 'light' | 'dark' };
-}
-
-const user: User = { name: 'John', settings: { theme: 'dark' } };
-const cloned = ReflectDeep.clone(user); // Type: User
-const theme = ReflectDeep.get<string>(user, ['settings', 'theme']); // Type: string | undefined
 ```
 
 ## License

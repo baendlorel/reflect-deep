@@ -309,6 +309,8 @@ export class ReflectDeep {
   /**
    * Creates a deep clone of an object, handling circular references and various JS types.
    *
+   * **Circular references are fully suppported**
+   *
    * ! Will not check depth of the object, so be careful with very deep objects.
    * @param obj - Object to clone.
    * @returns A deep clone of the object.
@@ -316,16 +318,29 @@ export class ReflectDeep {
    * const obj = { a: { b: [1, 2, { c: 3 }] } };
    * const cloned = ReflectDeep.clone(obj);
    * cloned.a.b[2].c = 4; // obj.a.b[2].c is still 3
-   *
-   * // Handles circular references
-   * const circular = { self: null };
-   * circular.self = circular;
-   * const clonedCircular = ReflectDeep.clone(circular); // Works without infinite recursion
    */
   static clone<T = any>(obj: T): T {
     return deepClone(new WeakMap(), obj);
   }
 
+  /**
+   * Gets all property keys (including symbols) from the target object and its prototype chain.
+   * Returns a flattened array of unique keys from all prototype layers.
+   * @param target - Target object to extract keys from.
+   * @returns Array of all unique property keys from the object and its prototype chain.
+   * @throws If target is not an object.
+   * @example
+   * const obj = { own: 'property', [Symbol('sym')]: 'symbol' };
+   * const keys = ReflectDeep.keys(obj);
+   * // Returns: ['own', Symbol(sym), 'toString', 'valueOf', ...] (includes prototype keys)
+   *
+   * // Works with custom prototypes
+   * function Parent() {}
+   * Parent.prototype.parentProp = 'parent';
+   * const child = Object.create(Parent.prototype);
+   * child.childProp = 'child';
+   * ReflectDeep.keys(child); // ['childProp', 'parentProp', 'toString', ...]
+   */
   static keys<T extends object>(target: T): (string | symbol)[] {
     expectTarget('keys', target);
 
@@ -341,6 +356,31 @@ export class ReflectDeep {
     }
   }
 
+  /**
+   * Gets property keys grouped by prototype layer, preserving the prototype chain structure.
+   * Returns an array where each element represents a layer in the prototype chain with its keys and object reference.
+   * @param target - Target object to extract grouped keys from.
+   * @returns Array of objects, each containing `keys` and `object` for each prototype layer.
+   * @throws If target is not an object.
+   * @example
+   * const obj = { own: 'property', [Symbol('sym')]: 'symbol' };
+   * const grouped = ReflectDeep.groupedKeys(obj);
+   * // Returns: [
+   * //   { keys: ['own', Symbol(sym)], object: obj },
+   * //   { keys: ['toString', 'valueOf', ...], object: Object.prototype },
+   * //   { keys: [], object: null }
+   * // ]
+   *
+   * // Useful for inspecting prototype chain structure
+   * function Parent() {}
+   * Parent.prototype.parentProp = 'parent';
+   * const child = Object.create(Parent.prototype);
+   * child.childProp = 'child';
+   * const layers = ReflectDeep.groupedKeys(child);
+   * // layers[0] = { keys: ['childProp'], object: child }
+   * // layers[1] = { keys: ['parentProp'], object: Parent.prototype }
+   * // layers[2] = { keys: ['toString', ...], object: Object.prototype }
+   */
   static groupedKeys<T extends object>(target: T): GroupedKey[] {
     expectTarget('groupedKeys', target);
 
