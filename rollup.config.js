@@ -51,38 +51,11 @@ export default [
           comments: false, // 移除所有注释
         },
         compress: {
-          drop_console: false, // 保留console语句
-          pure_getters: true,
-
+          drop_console: true,
           // 安全的常量折叠和死代码消除
           dead_code: true, // ✅ 安全：移除死代码
           evaluate: true, // ✅ 安全：计算常量表达式
-          fold_constants: true, // ✅ 安全：折叠常量表达式
-
-          // 自定义内联控制
-          reduce_vars: true, // 启用变量简化（内联前提）
-          inline: 1, // 中等内联级别
-          toplevel: true, // 顶级作用域优化
-          passes: 2, // 多次优化传递
-
-          // 指定要积极内联的纯函数
-          pure_funcs: [
-            'isPrimitive', // 您的工具函数
-            'typeErr',
-            'expectTargetAndKeys',
-            'expectTarget',
-          ],
-
-          // 安全的额外优化选项
-          collapse_vars: true, // ✅ 相对安全：合并变量声明
-          sequences: true, // ✅ 安全：合并连续语句
-          conditionals: true, // ✅ 安全：优化条件表达式
-          comparisons: true, // ✅ 安全：优化比较操作
-          booleans: true, // ✅ 安全：优化布尔表达式
-
-          // 额外的安全优化
-          hoist_funs: true, // ✅ 安全：函数提升
-          hoist_vars: false, // ✅ 保持变量作用域不变
+          // fold_constants 在新版本的 terser 中已被 evaluate 包含
         },
         mangle: {
           properties: {
