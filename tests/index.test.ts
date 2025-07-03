@@ -4,15 +4,22 @@ import { describe, it, fit, env, Env } from './injected-jest';
 import { ReflectDeep } from '../src';
 
 describe('ReflectDeep 深度反射测试', () => {
-  describe('clone() 深拷贝测试', () => {
-    it('应该克隆基本数据类型', () => {
-      expect(ReflectDeep.clone(null)).toBe(null);
-      expect(ReflectDeep.clone(undefined)).toBe(undefined);
-      expect(ReflectDeep.clone(42)).toBe(42);
-      expect(ReflectDeep.clone('hello')).toBe('hello');
-      expect(ReflectDeep.clone(true)).toBe(true);
-      expect(ReflectDeep.clone(Symbol.for('test'))).toBe(Symbol.for('test'));
-    });
+  describe('clone() toString深拷贝测试', () => {
+    it(
+      {
+        [Symbol.toPrimitive]() {
+          return 'clone() toPrimitive深拷贝测试';
+        },
+      } as any,
+      () => {
+        expect(ReflectDeep.clone(null)).toBe(null);
+        expect(ReflectDeep.clone(undefined)).toBe(undefined);
+        expect(ReflectDeep.clone(42)).toBe(42);
+        expect(ReflectDeep.clone('hello')).toBe('hello');
+        expect(ReflectDeep.clone(true)).toBe(true);
+        expect(ReflectDeep.clone(Symbol.for('test'))).toBe(Symbol.for('test'));
+      }
+    );
 
     it('应该克隆简单对象', () => {
       const obj = { a: 1, b: 'test', c: true };
