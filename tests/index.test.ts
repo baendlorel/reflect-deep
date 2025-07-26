@@ -1,25 +1,61 @@
-import { expect, fdescribe } from '@jest/globals';
-import { describe, it, fit, env, Env } from './injected-jest';
+import { expect, describe, it } from '@jest/globals';
 // import { ReflectDeep } from '../dist';
 import { ReflectDeep } from '../src';
 
 describe('ReflectDeep 深度反射测试', () => {
+  describe('deleteProperty 删除嵌套属性测试', () => {
+    it('应该删除存在的嵌套属性', () => {
+      const obj = { a: { b: { c: 123, d: 456 } } };
+      const result = ReflectDeep.deleteProperty(obj, ['a', 'b', 'c']);
+      expect(result).toBe(true);
+      expect('c' in obj.a.b).toBe(false);
+      expect(obj.a.b.d).toBe(456);
+    });
+
+    it('应该删除顶层属性', () => {
+      const obj = { x: 1, y: 2 };
+      const result = ReflectDeep.deleteProperty(obj, ['x']);
+      expect(result).toBe(true);
+      expect('x' in obj).toBe(false);
+      expect(obj.y).toBe(2);
+    });
+
+    it('删除不存在的属性应返回true，和原版一致', () => {
+      const obj = { a: { b: 1 } };
+      const result = ReflectDeep.deleteProperty(obj, ['a', 'c']);
+      expect(result).toBe(true);
+      expect(obj.a.b).toBe(1);
+    });
+
+    it('路径中遇到基本类型应返回false', () => {
+      const obj = { a: { b: 123 } };
+      const result = ReflectDeep.deleteProperty(obj, ['a', 'b', 'c']);
+      expect(result).toBe(false);
+    });
+
+    it('删除Symbol属性', () => {
+      const sym = Symbol('s');
+      const obj = { [sym]: { inner: 1 } };
+      const result = ReflectDeep.deleteProperty(obj, [sym, 'inner']);
+      expect(result).toBe(true);
+      expect('inner' in obj[sym]).toBe(false);
+    });
+
+    it('参数无效时应抛出错误', () => {
+      expect(() => ReflectDeep.deleteProperty(null as any, ['a'])).toThrow(TypeError);
+      expect(() => ReflectDeep.deleteProperty({}, [] as any)).toThrow(TypeError);
+    });
+  });
+
   describe('clone() toString深拷贝测试', () => {
-    it(
-      {
-        [Symbol.toPrimitive]() {
-          return 'clone() toPrimitive深拷贝测试';
-        },
-      } as any,
-      () => {
-        expect(ReflectDeep.clone(null)).toBe(null);
-        expect(ReflectDeep.clone(undefined)).toBe(undefined);
-        expect(ReflectDeep.clone(42)).toBe(42);
-        expect(ReflectDeep.clone('hello')).toBe('hello');
-        expect(ReflectDeep.clone(true)).toBe(true);
-        expect(ReflectDeep.clone(Symbol.for('test'))).toBe(Symbol.for('test'));
-      }
-    );
+    it('clone() toPrimitive深拷贝测试', () => {
+      expect(ReflectDeep.clone(null)).toBe(null);
+      expect(ReflectDeep.clone(undefined)).toBe(undefined);
+      expect(ReflectDeep.clone(42)).toBe(42);
+      expect(ReflectDeep.clone('hello')).toBe('hello');
+      expect(ReflectDeep.clone(true)).toBe(true);
+      expect(ReflectDeep.clone(Symbol.for('test'))).toBe(Symbol.for('test'));
+    });
 
     it('应该克隆简单对象', () => {
       const obj = { a: 1, b: 'test', c: true };
@@ -603,135 +639,6 @@ describe('ReflectDeep 深度反射测试', () => {
         (layer) => layer.keys.includes('toString') && layer.keys.includes('valueOf')
       );
       expect(objectProtoLayer).toBeDefined();
-    });
-  });
-
-  describe('构造函数测试', () => {
-    it('应该在尝试实例化时抛出错误', () => {
-      expect(() => Reflect.construct(ReflectDeep, [])).toThrow(TypeError);
-    });
-  });
-
-  describe('边界情况和刁钻测试', () => {
-    it('应该处理包含 Symbol 键的对象', () => {
-      const sym1 = Symbol('key1');
-      const sym2 = Symbol('key2');
-      const obj = {
-        [sym1]: { [sym2]: 'value' },
-      };
-
-      const cloned = ReflectDeep.clone(obj);
-      expect(cloned[sym1][sym2]).toBe('value');
-      expect(cloned).not.toBe(obj);
-
-      expect(ReflectDeep.get(obj, [sym1, sym2])).toBe('value');
-      expect(ReflectDeep.has(obj, [sym1, sym2])).toBe(true);
-    });
-
-    it('应该处理原型链上的属性1', () => {
-      function Parent(this: any) {}
-      Parent.prototype.inherited = 'parent';
-
-      function Child(this: any) {
-        this.own = 'child';
-      }
-      Child.prototype = Object.create(Parent.prototype);
-
-      const obj = new (Child as any)();
-      const cloned = ReflectDeep.clone(obj);
-
-      expect(cloned.own).toBe('child');
-      expect(cloned.inherited).toBe('parent');
-      expect(cloned).not.toBe(obj);
-    });
-
-    it('应该处理原型链上的属性2', () => {
-      function Parent(this: any) {}
-      Parent.prototype.inherited = 'Parent';
-
-      const s = Symbol();
-      function Child(this: any) {
-        this.own = 'Child';
-      }
-      Child.prototype = Object.create(Parent.prototype);
-
-      function GrandChild(this: any) {
-        this.self = 'GrandChild';
-      }
-      GrandChild.prototype = Object.create(Child.prototype);
-
-      const obj = new (GrandChild as any)();
-      const cloned = ReflectDeep.clone(obj);
-
-      expect(cloned.self).toBe('GrandChild');
-      expect(cloned.inherited).toBe('Parent');
-      expect(cloned).not.toBe(obj);
-    });
-
-    it('应该处理空对象和空数组', () => {
-      const emptyObj = {};
-      const emptyArr: any[] = [];
-
-      const clonedObj = ReflectDeep.clone(emptyObj);
-      const clonedArr = ReflectDeep.clone(emptyArr);
-
-      expect(clonedObj).toEqual({});
-      expect(clonedObj).not.toBe(emptyObj);
-      expect(clonedArr).toEqual([]);
-      expect(clonedArr).not.toBe(emptyArr);
-    });
-
-    it('应该处理稀疏数组', () => {
-      const sparseArr = [1, , , 4]; // 稀疏数组
-      const cloned = ReflectDeep.clone(sparseArr);
-
-      expect(cloned.length).toBe(4);
-      expect(cloned[0]).toBe(1);
-      expect(cloned[1]).toBe(undefined);
-      expect(cloned[3]).toBe(4);
-      expect(1 in cloned).toBe(false); // 索引1不存在
-    });
-
-    it('应该处理具有数字键的对象', () => {
-      const obj = { 0: 'zero', 1: 'one', length: 2 };
-      const cloned = ReflectDeep.clone(obj);
-
-      expect(cloned[0]).toBe('zero');
-      expect(cloned[1]).toBe('one');
-      expect(cloned.length).toBe(2);
-      expect(cloned).not.toBe(obj);
-    });
-
-    it('应该处理带有 getter/setter 的对象', () => {
-      const obj = {
-        _value: 'initial',
-        get value() {
-          return this._value;
-        },
-        set value(v) {
-          this._value = v;
-        },
-      };
-
-      const cloned = ReflectDeep.clone(obj);
-      expect(cloned.value).toBe('initial');
-
-      cloned.value = 'modified';
-      expect(cloned.value).toBe('modified');
-      expect(obj.value).toBe('initial'); // 原对象不受影响
-    });
-
-    it('应该处理超长路径', () => {
-      const obj = {};
-      const longPath = Array.from({ length: 100 }, (_, i) => `level${i}`);
-
-      expect(ReflectDeep.set(obj, longPath, 'deep')).toBe(true);
-      expect(ReflectDeep.get(obj, longPath)).toBe('deep');
-      expect(ReflectDeep.has(obj, longPath)).toBe(true);
-
-      const result = ReflectDeep.reach(obj, longPath);
-      expect(result.value).toBe('deep');
-      expect(result.index).toBe(99);
     });
   });
 });

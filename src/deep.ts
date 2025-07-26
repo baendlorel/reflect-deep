@@ -163,6 +163,7 @@ export class ReflectDeep {
    * @param propertyKeys - Property path to check.
    * @returns `true` if the property exists, `false` otherwise.
    * @throws If target is not an object or propertyKeys is invalid.
+   * @throws If target is not an object or propertyKeys is not a valid non-empty array.
    * @example
    * const obj = { a: { b: { c: 'hello' } } };
    * ReflectDeep.has(obj, ['a', 'b', 'c']); // true
@@ -191,6 +192,7 @@ export class ReflectDeep {
    * @param receiver - The `this` value for getter calls.
    * @returns The property value, or `undefined` if not found.
    * @throws If target is not an object or propertyKeys is invalid.
+   * @throws If target is not an object or propertyKeys is not a valid non-empty array.
    * @example
    * const obj = { a: { b: { c: 'hello' } } };
    * ReflectDeep.get(obj, ['a', 'b', 'c']); // 'hello'
@@ -230,6 +232,7 @@ export class ReflectDeep {
    * @param receiver - The `this` value for setter calls.
    * @returns `true` if successful, `false` otherwise.
    * @throws If target is not an object or propertyKeys is invalid.
+   * @throws If target is not an object or propertyKeys is not a valid non-empty array.
    * @example
    * const obj = { };
    * ReflectDeep.set(obj, ['a', 'b', 'c'], 'hello'); // Creates nested structure
@@ -270,6 +273,7 @@ export class ReflectDeep {
    * @param receiver - The `this` value for getter calls.
    * @returns Object with `value` (furthest reachable value), `index` (position reached), and `reached` (whether the full path was traversed).
    * @throws If target is not an object or propertyKeys is invalid.
+   * @throws If target is not an object or propertyKeys is not a valid non-empty array.
    * @example
    * const obj = { a: { b: { c: 'hello' } } };
    * ReflectDeep.reach(obj, ['a', 'b', 'c']); // { value: 'hello', index: 2, reached: true }
@@ -326,13 +330,46 @@ export class ReflectDeep {
     return deepClone(new WeakMap(), obj);
   }
 
-  // todo 增加deleteproperty方法
+  /**
+   * Deletes a nested property at the given path.
+   *
+   * **Has same behavior as the original `Reflect.deleteProperty`**
+   * - property does not exist, return `true`
+   * - exists and configurable, return `true`
+   * - exists but not configurable, return `false`
+   * - `target` is frozen, return `false`
+   * @param target - Target object.
+   * @param propertyKeys - Property path to delete.
+   * @throws If target is not an object or propertyKeys is invalid.
+   * @example
+   * const obj = { a: { b: { c: 'hello', d: 'world' } } };
+   * ReflectDeep.deleteProperty(obj, ['a', 'b', 'c']); // true
+   * obj.a.b; // { d: 'world' }
+   */
+  static deleteProperty(target: object, propertyKeys: PropertyKey[]): boolean {
+    expectTargetAndKeys('deleteProperty', target, propertyKeys);
+
+    let current = target;
+    for (let i = 0; i < propertyKeys.length - 1; i++) {
+      if (!Reflect.has(current, propertyKeys[i])) {
+        return true;
+      }
+
+      current = Reflect.get(current, propertyKeys[i]);
+      if (isPrimitive(current)) {
+        return false;
+      }
+    }
+
+    return Reflect.deleteProperty(current, propertyKeys[propertyKeys.length - 1]);
+  }
 
   /**
    * Gets all property keys (including symbols) from the target object and its prototype chain.
    * Returns a flattened array of unique keys from all prototype layers.
    * @param target - Target object to extract keys from.
    * @returns Array of all unique property keys from the object and its prototype chain.
+   * @throws If target is not an object.
    * @throws If target is not an object.
    * @example
    * const obj = { own: 'property', [Symbol('sym')]: 'symbol' };
@@ -371,6 +408,7 @@ export class ReflectDeep {
    * Returns an array where each element represents a layer in the prototype chain with its keys and object reference.
    * @param target - Target object to extract grouped keys from.
    * @returns Array of objects, each containing `keys` and `object` for each prototype layer.
+   * @throws If target is not an object.
    * @throws If target is not an object.
    * @example
    * const obj = { own: 'property', [Symbol('sym')]: 'symbol' };
