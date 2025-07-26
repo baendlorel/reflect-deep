@@ -47,6 +47,109 @@ describe('ReflectDeep 深度反射测试', () => {
     });
   });
 
+  describe('defineProperty() 定义嵌套属性测试', () => {
+    it('应该定义嵌套属性', () => {
+      const obj = {};
+      const result = ReflectDeep.defineProperty(obj, ['a', 'b', 'c'], {
+        value: 'hello',
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+
+      expect(result).toBe(true);
+      expect((obj as any).a.b.c).toBe('hello');
+    });
+
+    it('应该定义不可写属性', () => {
+      const obj = { a: {} };
+      const result = ReflectDeep.defineProperty(obj, ['a', 'readonly'], {
+        value: 'fixed',
+        writable: false,
+        enumerable: true,
+        configurable: true,
+      });
+
+      expect(result).toBe(true);
+      expect((obj as any).a.readonly).toBe('fixed');
+
+      // 尝试修改不可写属性
+      let threw = false;
+      try {
+        (obj as any).a.readonly = 'changed';
+      } catch (e) {
+        threw = true;
+        expect(e).toBeInstanceOf(TypeError);
+      }
+      // 严格模式下应抛异常，非严格模式下值不变
+      if (!threw) {
+        expect((obj as any).a.readonly).toBe('fixed'); // 值未改变
+      }
+    });
+
+    it('应该定义getter/setter属性', () => {
+      const obj = { a: {} };
+      let value = 'initial';
+
+      const result = ReflectDeep.defineProperty(obj, ['a', 'prop'], {
+        get() {
+          return value;
+        },
+        set(v) {
+          value = v;
+        },
+        enumerable: true,
+        configurable: true,
+      });
+
+      expect(result).toBe(true);
+      expect((obj as any).a.prop).toBe('initial');
+
+      (obj as any).a.prop = 'modified';
+      expect((obj as any).a.prop).toBe('modified');
+    });
+
+    it('应该定义Symbol属性', () => {
+      const sym = Symbol('test');
+      const obj = {};
+
+      const result = ReflectDeep.defineProperty(obj, ['nested', sym], {
+        value: 'symbol value',
+        writable: true,
+        enumerable: false,
+        configurable: true,
+      });
+
+      expect(result).toBe(true);
+      expect((obj as any).nested[sym]).toBe('symbol value');
+    });
+
+    it('路径中遇到基本类型应返回false', () => {
+      const obj = { a: { b: 'string' } };
+      const result = ReflectDeep.defineProperty(obj, ['a', 'b', 'c'], {
+        value: 'test',
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it('应该覆盖已存在的属性', () => {
+      const obj = { a: { b: { old: 'value' } } };
+      const result = ReflectDeep.defineProperty(obj, ['a', 'b', 'old'], {
+        value: 'new value',
+        writable: false,
+      });
+
+      expect(result).toBe(true);
+      expect(obj.a.b.old).toBe('new value');
+    });
+
+    it('参数无效时应抛出错误', () => {
+      expect(() => ReflectDeep.defineProperty(null as any, ['a'], {})).toThrow(TypeError);
+      expect(() => ReflectDeep.defineProperty({}, [] as any, {})).toThrow(TypeError);
+    });
+  });
+
   describe('clone() toString深拷贝测试', () => {
     it('clone() toPrimitive深拷贝测试', () => {
       expect(ReflectDeep.clone(null)).toBe(null);

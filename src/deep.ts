@@ -338,9 +338,10 @@ export class ReflectDeep {
    * - exists and configurable, return `true`
    * - exists but not configurable, return `false`
    * - `target` is frozen, return `false`
-   * @param target - Target object.
-   * @param propertyKeys - Property path to delete.
-   * @throws If target is not an object or propertyKeys is invalid.
+   * @param target Target object.
+   * @param propertyKeys Property path to delete.
+   * @returns `true` if successful, `false` otherwise.
+   * @throws If target is not an object or propertyKeys is not a valid non-empty array.
    * @example
    * const obj = { a: { b: { c: 'hello', d: 'world' } } };
    * ReflectDeep.deleteProperty(obj, ['a', 'b', 'c']); // true
@@ -362,6 +363,50 @@ export class ReflectDeep {
     }
 
     return Reflect.deleteProperty(current, propertyKeys[propertyKeys.length - 1]);
+  }
+
+  /**
+   * Defines a nested property with the given descriptor, creating intermediate objects as needed.
+   *
+   * **Has same behavior as the original `Reflect.defineProperty`**
+   * @param target Target object.
+   * @param propertyKeys Property path to define.
+   * @param descriptor Property descriptor to apply.
+   * @returns `true` if successful, `false` otherwise.
+   * @throws If target is not an object or propertyKeys is not a valid non-empty array.
+   * @example
+   * const obj = {};
+   * ReflectDeep.defineProperty(obj, ['a', 'b', 'c'], { value: 'hello', writable: true });
+   * obj.a.b.c; // 'hello'
+   *
+   * // Define getter/setter
+   * ReflectDeep.defineProperty(obj, ['x', 'y'], {
+   *   get() { return this._value; },
+   *   set(v) { this._value = v; }
+   * });
+   */
+  static defineProperty(
+    target: object,
+    propertyKeys: PropertyKey[],
+    descriptor: PropertyDescriptor
+  ): boolean {
+    expectTargetAndKeys('defineProperty', target, propertyKeys);
+
+    let current = target;
+    for (let i = 0; i < propertyKeys.length - 1; i++) {
+      if (!Reflect.has(current, propertyKeys[i])) {
+        if (!Reflect.set(current, propertyKeys[i], {})) {
+          return false;
+        }
+      }
+
+      current = Reflect.get(current, propertyKeys[i]);
+      if (isPrimitive(current)) {
+        return false;
+      }
+    }
+
+    return Reflect.defineProperty(current, propertyKeys[propertyKeys.length - 1], descriptor);
   }
 
   /**
