@@ -1,12 +1,14 @@
 # ReflectDeep
 
+[English](README.md) | [中文](README.zh-CN.md)
+
 A powerful TypeScript library for deep reflection operations on JavaScript objects.
 
 Utilities for deep cloning, nested property access, and manipulation with support for circular references and various JavaScript types.
 
 ## Features
 
-- 🔍 **Deep Property Access**: Provides functions with classic names like `get`, `set` and `has`. With original function `reach`, you can check nested object properties safely
+- 🔍 **Deep Property Access**: Provides functions with classic names like `get`, `set`, `has`, `deleteProperty`, and `defineProperty`. With original function `reach`, you can check nested object properties safely
 - 🔄 **Deep Cloning**: Clone complex objects with circular reference handling
 - 🔑 **Prototype Chain Inspection**: Extract all keys from prototype chain with `keys()` or grouped by layer with `groupedKeys()`
 - 🛡️ **Type Safety**: Full TypeScript support with proper type inference
@@ -31,9 +33,20 @@ ReflectDeep.get(obj, ['a', 'b', 2, 'c']); // 3
 ReflectDeep.set(obj, ['a', 'b', 2, 'd'], 'new value');
 ReflectDeep.has(obj, ['a', 'b', 2, 'd']); // true
 
+// Property deletion
+ReflectDeep.deleteProperty(obj, ['a', 'b', 2, 'd']); // true
+
+// Property definition with descriptor
+ReflectDeep.defineProperty(obj, ['a', 'readonly'], {
+  value: 'immutable',
+  writable: false,
+  enumerable: true,
+  configurable: true,
+});
+
 // Property reach
 ReflectDeep.reach(obj, ['a', 'e']); // { value: null, index: 1, reached: true }
-ReflectDeep.reach(obj, ['a', 'b', 2, 'x']); // { value: { c: 3, d: 'new value' }, index: 2, reached: false }
+ReflectDeep.reach(obj, ['a', 'b', 2, 'x']); // { value: { c: 3 }, index: 2, reached: false }
 
 // Deep cloning
 const cloned = ReflectDeep.clone(obj);
@@ -116,6 +129,59 @@ Creates a deep clone of an object with circular reference handling. **Circular r
 const origin = { a: 1, b: { c: 2, o: null } };
 origin.b.o = origin; // Circular reference
 ReflectDeep.clone(origin); // Deep copy of origin
+```
+
+### deleteProperty(target, propertyKeys)
+
+Deletes a nested property at the given path. **Has same behavior as the original `Reflect.deleteProperty`**
+
+- `target` - Target object
+- `propertyKeys` - Array of property keys forming the path
+
+Returns `true` if successful, `false` otherwise.
+
+```typescript
+const obj = { a: { b: { c: 'hello', d: 'world' } } };
+ReflectDeep.deleteProperty(obj, ['a', 'b', 'c']); // true
+// obj.a.b is now { d: 'world' }
+
+// Returns true even if property doesn't exist (like original Reflect.deleteProperty)
+ReflectDeep.deleteProperty(obj, ['a', 'b', 'nonexistent']); // true
+```
+
+### defineProperty(target, propertyKeys, descriptor)
+
+Defines a nested property with the given descriptor, creating intermediate objects as needed. **Has same behavior as the original `Reflect.defineProperty`**
+
+- `target` - Target object
+- `propertyKeys` - Array of property keys forming the path
+- `descriptor` - Property descriptor to apply
+
+Returns `true` if successful, `false` otherwise.
+
+```typescript
+const obj = {};
+
+// Define a regular property
+ReflectDeep.defineProperty(obj, ['a', 'b', 'c'], {
+  value: 'hello',
+  writable: true,
+  enumerable: true,
+  configurable: true,
+});
+// obj.a.b.c is now 'hello'
+
+// Define a getter/setter property
+ReflectDeep.defineProperty(obj, ['x', 'y'], {
+  get() {
+    return this._value;
+  },
+  set(v) {
+    this._value = v;
+  },
+  enumerable: true,
+  configurable: true,
+});
 ```
 
 ### keys(target)
