@@ -1,3 +1,6 @@
+# Settings
+.vscode/settings.json
+
 # Jest
 coverage/
 
