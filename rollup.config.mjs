@@ -1,3 +1,4 @@
+import pkg from './package.json' with { type: "json" };
 import path from 'path';
 import dts from 'rollup-plugin-dts';
 import typescript from '@rollup/plugin-typescript';
@@ -6,8 +7,10 @@ import commonjs from '@rollup/plugin-commonjs';
 import alias from '@rollup/plugin-alias';
 import terser from '@rollup/plugin-terser';
 import babel from '@rollup/plugin-babel';
+import replace from '@rollup/plugin-replace';
 
 const tsconfigFile = './tsconfig.build.json';
+
 /**
  * @type {import('rollup').RollupOptions}
  */
@@ -27,6 +30,10 @@ export default [
     plugins: [
       alias({
         entries: [{ find: /^@/, replacement: path.resolve(import.meta.dirname, 'src') }],
+      }),
+      replace({
+        preventAssignment: true, // 推荐加上
+        __VERSION__: pkg.version,
       }),
       resolve(),
       commonjs(),

@@ -157,6 +157,10 @@ export class ReflectDeep {
     throw TypeError(`${NAME} is not a constructor`);
   }
 
+  static get version() {
+    return '__VERSION__';
+  }
+
   /**
    * Checks if a nested property exists at the given path.
    * @param target - Target object to check.
