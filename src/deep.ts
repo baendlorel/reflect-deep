@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NAME, isPrimitive, expectTargetAndKeys, expectTarget } from './common';
+import { Consts, isPrimitive, expectTargetAndKeys, expectTarget } from './common';
 
 interface ReachResult {
   /**
@@ -31,7 +31,7 @@ interface GroupedKey {
   object: any;
 }
 
-const deepClone = (cache: WeakMap<any, any>, o: any): any => {
+function deepClone(cache: WeakMap<any, any>, o: any): any {
   if (typeof o !== 'object' || o === null) {
     return o;
   }
@@ -147,14 +147,14 @@ const deepClone = (cache: WeakMap<any, any>, o: any): any => {
     Reflect.set(result, keys[i], deepClone(cache, value));
   }
   return result;
-};
+}
 
 const NOT_GIVEN = Symbol('not-given');
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
-export class ReflectDeep {
+export class ReflectDeep extends null {
   constructor() {
-    throw TypeError(`${NAME} is not a constructor`);
+    throw TypeError(`${Consts.Name} is not a constructor`);
   }
 
   static get version() {
@@ -496,5 +496,3 @@ export class ReflectDeep {
     }
   }
 }
-
-Reflect.setPrototypeOf(ReflectDeep, null);

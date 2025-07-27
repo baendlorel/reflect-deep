@@ -1,21 +1,24 @@
-export const NAME = 'ReflectDeep';
+export const enum Consts {
+  Name = 'ReflectDeep',
+}
 
 // # utils
 
-export const isPrimitive = (o: unknown) =>
-  (typeof o !== 'object' || o === null) && typeof o !== 'function';
+export function isPrimitive(o: unknown) {
+  return (typeof o !== 'object' || o === null) && typeof o !== 'function';
+}
 
-export const typeErr = (fnName: string, msg: string) => {
-  return new TypeError(`${NAME}.${fnName} ${msg}`);
-};
+export function typeErr(fnName: string, msg: string) {
+  return new TypeError(`${Consts.Name}.${fnName} ${msg}`);
+}
 
-export const expectTarget = (fnName: string, o: unknown) => {
+export function expectTarget(fnName: string, o: unknown) {
   if (isPrimitive(o)) {
     throw typeErr(fnName, `called with non-object target: ${o}`);
   }
-};
+}
 
-export const expectTargetAndKeys = (fnName: string, o: unknown, keys: PropertyKey[]) => {
+export function expectTargetAndKeys(fnName: string, o: unknown, keys: PropertyKey[]) {
   if (isPrimitive(o)) {
     throw typeErr(fnName, `called with non-object target: ${o}`);
   }
@@ -25,4 +28,4 @@ export const expectTargetAndKeys = (fnName: string, o: unknown, keys: PropertyKe
   if (keys.length === 0) {
     throw typeErr(fnName, `called with empty array of keys`);
   }
-};
+}
