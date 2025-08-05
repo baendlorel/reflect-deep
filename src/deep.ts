@@ -1,6 +1,53 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Consts, isPrimitive, expectTargetAndKeys, expectTarget } from './common';
 
+// Cache global methods for better performance and robustness
+const ObjectCreate = Object.create;
+const ObjectPrototype = Object.prototype;
+const ObjectValueOf = ObjectPrototype.valueOf;
+
+const ReflectGet = Reflect.get;
+const ReflectSet = Reflect.set;
+const ReflectHas = Reflect.has;
+const ReflectOwnKeys = Reflect.ownKeys;
+const ReflectGetPrototypeOf = Reflect.getPrototypeOf;
+const ReflectDeleteProperty = Reflect.deleteProperty;
+const ReflectDefineProperty = Reflect.defineProperty;
+const ReflectSetPrototypef = Reflect.setPrototypeOf;
+
+const ArrayIsArray = Array.isArray;
+const ArrayFromIterator = Array.from;
+
+const ArrayBufferIsView = ArrayBuffer.isView;
+const ArrayBufferSlice = ArrayBuffer.prototype.slice;
+
+const DateConstructor = Date;
+const RegExpConstructor = RegExp;
+const MapConstructor = Map;
+const SetConstructor = Set;
+const WeakMapConstructor = WeakMap;
+const WeakSetConstructor = WeakSet;
+const WeakRefConstructor = WeakRef;
+const DataViewConstructor = DataView;
+
+const NumberConstructor = Number;
+const StringConstructor = String;
+const BooleanConstructor = Boolean;
+const BigIntConstructor = typeof BigInt !== 'undefined' ? BigInt : undefined;
+
+const PromiseConstructor = Promise;
+const SharedArrayBufferConstructor =
+  typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : undefined;
+
+// Buffer is Node.js specific, may not exist in browsers
+const BufferConstructor = typeof Buffer !== 'undefined' ? Buffer : undefined;
+const BufferFrom = BufferConstructor?.from;
+
+const SetAdd = Set.prototype.add;
+const SetForEach = Set.prototype.forEach;
+const MapSet = Map.prototype.set;
+const MapForEach = Map.prototype.forEach;
+
 interface ReachResult {
   /**
    * The furthest reachable value in the object at the given property path.
@@ -42,16 +89,28 @@ function deepClone(cache: WeakMap<any, any>, o: any): any {
 
   // # Boxed primitives (Number, String, Boolean, BigInt, Symbol objects)
   if (
-    o instanceof Number ||
-    o instanceof String ||
-    o instanceof Boolean ||
-    (typeof BigInt !== 'undefined' && o instanceof BigInt)
+    o instanceof NumberConstructor ||
+    o instanceof StringConstructor ||
+    o instanceof BooleanConstructor ||
+    (BigIntConstructor && o instanceof BigIntConstructor)
   ) {
-    return Object(o.valueOf());
+    // Create new boxed primitive with the same value
+    const primitiveValue = ObjectValueOf.call(o);
+    if (o instanceof NumberConstructor) return new NumberConstructor(primitiveValue);
+    if (o instanceof StringConstructor) return new StringConstructor(primitiveValue);
+    if (o instanceof BooleanConstructor) return new BooleanConstructor(primitiveValue);
+    if (BigIntConstructor && o instanceof BigIntConstructor)
+      return ObjectCreate(BigIntConstructor.prototype, {
+        [Symbol.toPrimitive]: {
+          value: () => primitiveValue,
+          enumerable: false,
+          configurable: false,
+        },
+      });
   }
 
   // # Common types
-  if (Array.isArray(o)) {
+  if (ArrayIsArray(o)) {
     const result: any[] = [];
     cache.set(o, result);
     for (let i = 0; i < o.length; i++) {
@@ -62,61 +121,65 @@ function deepClone(cache: WeakMap<any, any>, o: any): any {
     return result;
   }
 
-  if (o instanceof Map) {
-    const result = new Map();
+  if (o instanceof MapConstructor) {
+    const result = new MapConstructor();
     cache.set(o, result);
-    o.forEach((v, k) => {
-      result.set(deepClone(cache, k), deepClone(cache, v));
+    MapForEach.call(o, (v, k) => {
+      MapSet.call(result, deepClone(cache, k), deepClone(cache, v));
     });
     return result;
   }
 
-  if (o instanceof Set) {
-    const result = new Set();
+  if (o instanceof SetConstructor) {
+    const result = new SetConstructor();
     cache.set(o, result);
-    o.forEach((v) => {
-      result.add(deepClone(cache, v));
+    SetForEach.call(o, (v) => {
+      SetAdd.call(result, deepClone(cache, v));
     });
     return result;
   }
 
-  if (o instanceof Date) {
-    return new Date(o);
+  if (o instanceof DateConstructor) {
+    return new DateConstructor(o);
   }
 
-  if (o instanceof RegExp) {
-    return new RegExp(o.source, o.flags);
+  if (o instanceof RegExpConstructor) {
+    return new RegExpConstructor(o.source, o.flags);
   }
 
   // #  Values cannot be copied
-  if (o instanceof WeakMap) {
+  if (o instanceof WeakMapConstructor) {
     return o;
   }
 
-  if (o instanceof WeakSet) {
+  if (o instanceof WeakSetConstructor) {
     return o;
   }
 
-  if (o instanceof WeakRef) {
-    return new WeakRef(deepClone(cache, o.deref()));
+  if (o instanceof WeakRefConstructor) {
+    return new WeakRefConstructor(deepClone(cache, o.deref()));
   }
 
-  if (o instanceof Promise) {
+  if (o instanceof PromiseConstructor) {
     return o;
   }
 
-  if (o instanceof SharedArrayBuffer) {
+  if (SharedArrayBufferConstructor && o instanceof SharedArrayBufferConstructor) {
     // SharedArrayBuffer cannot be cloned safely, return the same reference
     return o;
   }
 
   // # Typed arrays and DataView
-  if (ArrayBuffer.isView(o)) {
+  if (ArrayBufferIsView(o)) {
     const TypedArrayConstructor = (o as any).constructor;
-    if (o instanceof DataView) {
+    if (o instanceof DataViewConstructor) {
       // DataView needs special handling - copy the underlying buffer and recreate
-      const clonedBuffer = o.buffer.slice(o.byteOffset, o.byteOffset + o.byteLength);
-      return new DataView(clonedBuffer);
+      const clonedBuffer = ArrayBufferSlice.call(
+        o.buffer,
+        o.byteOffset,
+        o.byteOffset + o.byteLength
+      );
+      return new DataViewConstructor(clonedBuffer);
     } else {
       // TypedArrays can be created from the original array
       return new TypedArrayConstructor(o);
@@ -124,27 +187,27 @@ function deepClone(cache: WeakMap<any, any>, o: any): any {
   }
 
   if (o instanceof ArrayBuffer) {
-    return o.slice(0);
+    return ArrayBufferSlice.call(o, 0);
   }
 
   // # Node.js Buffer (if available)
-  if (typeof Buffer !== 'undefined' && o instanceof Buffer) {
-    return Buffer.from(o);
+  if (BufferConstructor && o instanceof BufferConstructor) {
+    return BufferFrom!(o);
   }
 
   // # Copy everything else
-  const result = Object.create(Reflect.getPrototypeOf(o));
+  const result = ObjectCreate(ReflectGetPrototypeOf(o));
   cache.set(o, result);
 
-  const keys = Reflect.ownKeys(o);
+  const keys = ReflectOwnKeys(o);
   for (let i = 0; i < keys.length; i++) {
     // some prop may be carried over from prototype chain, so we need to check if it exists on the object
-    if (!Reflect.has(o, keys[i])) {
+    if (!ReflectHas(o, keys[i])) {
       continue;
     }
 
-    const value = Reflect.get(o, keys[i]);
-    Reflect.set(result, keys[i], deepClone(cache, value));
+    const value = ReflectGet(o, keys[i]);
+    ReflectSet(result, keys[i], deepClone(cache, value));
   }
   return result;
 }
@@ -177,16 +240,16 @@ export class ReflectDeep extends null {
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
-      if (!Reflect.has(current, propertyKeys[i])) {
+      if (!ReflectHas(current, propertyKeys[i])) {
         return false;
       }
 
-      current = Reflect.get(current, propertyKeys[i]);
+      current = ReflectGet(current, propertyKeys[i]);
       if (isPrimitive(current)) {
         return false;
       }
     }
-    return Reflect.has(current, propertyKeys[propertyKeys.length - 1]);
+    return ReflectHas(current, propertyKeys[propertyKeys.length - 1]);
   }
 
   /**
@@ -210,11 +273,11 @@ export class ReflectDeep extends null {
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
-      if (!Reflect.has(current, propertyKeys[i])) {
+      if (!ReflectHas(current, propertyKeys[i])) {
         return undefined;
       }
 
-      current = Reflect.get(current, propertyKeys[i]);
+      current = ReflectGet(current, propertyKeys[i]);
       if (isPrimitive(current)) {
         return undefined;
       }
@@ -222,8 +285,8 @@ export class ReflectDeep extends null {
 
     const result =
       receiver === NOT_GIVEN
-        ? Reflect.get(current, propertyKeys[propertyKeys.length - 1])
-        : Reflect.get(current, propertyKeys[propertyKeys.length - 1], receiver);
+        ? ReflectGet(current, propertyKeys[propertyKeys.length - 1])
+        : ReflectGet(current, propertyKeys[propertyKeys.length - 1], receiver);
 
     return result as T | undefined;
   }
@@ -252,22 +315,22 @@ export class ReflectDeep extends null {
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
-      if (!Reflect.has(current, propertyKeys[i])) {
-        if (!Reflect.set(current, propertyKeys[i], {})) {
+      if (!ReflectHas(current, propertyKeys[i])) {
+        if (!ReflectSet(current, propertyKeys[i], {})) {
           return false;
         }
       }
 
       // Check if current can be set
-      current = Reflect.get(current, propertyKeys[i]);
+      current = ReflectGet(current, propertyKeys[i]);
       if (isPrimitive(current)) {
         return false;
       }
     }
 
     return receiver === NOT_GIVEN
-      ? Reflect.set(current, propertyKeys[propertyKeys.length - 1], value)
-      : Reflect.set(current, propertyKeys[propertyKeys.length - 1], value, receiver);
+      ? ReflectSet(current, propertyKeys[propertyKeys.length - 1], value)
+      : ReflectSet(current, propertyKeys[propertyKeys.length - 1], value, receiver);
   }
 
   /**
@@ -294,20 +357,20 @@ export class ReflectDeep extends null {
 
     let current = target;
     for (let i = 0; i < propertyKeys.length; i++) {
-      if (!Reflect.has(current, propertyKeys[i])) {
+      if (!ReflectHas(current, propertyKeys[i])) {
         return { value: current, index: i - 1, reached: false };
       }
 
       if (i === propertyKeys.length - 1) {
         const value =
           receiver === NOT_GIVEN
-            ? Reflect.get(current, propertyKeys[i])
-            : Reflect.get(current, propertyKeys[i], receiver);
+            ? ReflectGet(current, propertyKeys[i])
+            : ReflectGet(current, propertyKeys[i], receiver);
 
         return { value, index: i, reached: true };
       }
 
-      current = Reflect.get(current, propertyKeys[i]);
+      current = ReflectGet(current, propertyKeys[i]);
       if (isPrimitive(current)) {
         return { value: current, index: i, reached: false };
       }
@@ -331,7 +394,7 @@ export class ReflectDeep extends null {
    * cloned.a.b[2].c = 4; // obj.a.b[2].c is still 3
    */
   static clone<T = any>(obj: T): T {
-    return deepClone(new WeakMap(), obj);
+    return deepClone(new WeakMapConstructor(), obj);
   }
 
   /**
@@ -356,17 +419,17 @@ export class ReflectDeep extends null {
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
-      if (!Reflect.has(current, propertyKeys[i])) {
+      if (!ReflectHas(current, propertyKeys[i])) {
         return true;
       }
 
-      current = Reflect.get(current, propertyKeys[i]);
+      current = ReflectGet(current, propertyKeys[i]);
       if (isPrimitive(current)) {
         return false;
       }
     }
 
-    return Reflect.deleteProperty(current, propertyKeys[propertyKeys.length - 1]);
+    return ReflectDeleteProperty(current, propertyKeys[propertyKeys.length - 1]);
   }
 
   /**
@@ -398,19 +461,19 @@ export class ReflectDeep extends null {
 
     let current = target;
     for (let i = 0; i < propertyKeys.length - 1; i++) {
-      if (!Reflect.has(current, propertyKeys[i])) {
-        if (!Reflect.set(current, propertyKeys[i], {})) {
+      if (!ReflectHas(current, propertyKeys[i])) {
+        if (!ReflectSet(current, propertyKeys[i], {})) {
           return false;
         }
       }
 
-      current = Reflect.get(current, propertyKeys[i]);
+      current = ReflectGet(current, propertyKeys[i]);
       if (isPrimitive(current)) {
         return false;
       }
     }
 
-    return Reflect.defineProperty(current, propertyKeys[propertyKeys.length - 1], descriptor);
+    return ReflectDefineProperty(current, propertyKeys[propertyKeys.length - 1], descriptor);
   }
 
   /**
@@ -435,19 +498,19 @@ export class ReflectDeep extends null {
   static keys<T extends object>(target: T): (string | symbol)[] {
     expectTarget('keys', target);
 
-    const keySet = new Set(Reflect.ownKeys(target));
+    const keySet = new SetConstructor(ReflectOwnKeys(target));
     let proto: object | null = target;
     while (true) {
-      proto = Reflect.getPrototypeOf(proto);
+      proto = ReflectGetPrototypeOf(proto);
 
       // * Proto chain will not contain any loop
       if (proto) {
-        const keys = Reflect.ownKeys(proto);
+        const keys = ReflectOwnKeys(proto);
         for (let i = 0; i < keys.length; i++) {
-          keySet.add(keys[i]);
+          SetAdd.call(keySet, keys[i]);
         }
       } else {
-        return Array.from(keySet);
+        return ArrayFromIterator(keySet);
       }
     }
   }
@@ -481,8 +544,8 @@ export class ReflectDeep extends null {
   static groupedKeys<T extends object>(target: T): GroupedKey[] {
     expectTarget('groupedKeys', target);
 
-    const keys: GroupedKey[] = [{ keys: Reflect.ownKeys(target), object: target }];
-    let proto = Reflect.getPrototypeOf(target);
+    const keys: GroupedKey[] = [{ keys: ReflectOwnKeys(target), object: target }];
+    let proto = ReflectGetPrototypeOf(target);
     while (true) {
       // * Proto chain will not contain any loop
       if (!proto) {
@@ -490,9 +553,9 @@ export class ReflectDeep extends null {
       }
       keys.push({
         object: proto,
-        keys: Reflect.ownKeys(proto),
+        keys: ReflectOwnKeys(proto),
       });
-      proto = Reflect.getPrototypeOf(proto);
+      proto = ReflectGetPrototypeOf(proto);
     }
   }
 }
