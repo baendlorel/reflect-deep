@@ -1,6 +1,6 @@
-import { expect, describe, it } from '@jest/globals';
+import { expect, describe, it } from 'vitest';
 // import { ReflectDeep } from '../dist';
-import { ReflectDeep } from '../src';
+import { ReflectDeep } from '../src/index.js';
 
 describe('ReflectDeep 深度反射测试', () => {
   describe('deleteProperty 删除嵌套属性测试', () => {

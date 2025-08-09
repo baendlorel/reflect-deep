@@ -1,5 +1,5 @@
-import { ReflectDeep } from '@/deep';
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
+import { ReflectDeep } from '../src/index.js';
 
 describe('构造函数测试', () => {
   it('应该在尝试实例化时抛出错误', () => {

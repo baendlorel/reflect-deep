@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "module": "ESNext",
     "target": "ESNext",
-    "moduleResolution": "node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "declaration": false, // 是否生成声明文件, 选择false然后由rollup配置全权掌握
     "esModuleInterop": true, // 可选，增强兼容性
     "strict": true,

@@ -1,1 +1,1 @@
-export { ReflectDeep } from './deep';
+export { ReflectDeep } from './deep.js';

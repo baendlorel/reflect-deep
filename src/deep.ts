@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Consts, isPrimitive, expectTargetAndKeys, expectTarget } from './common';
+import { Consts, isPrimitive, expectTargetAndKeys, expectTarget } from './common.js';
 
 // Cache global methods for better performance and robustness
 const ObjectCreate = Object.create;
