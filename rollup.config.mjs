@@ -1,5 +1,12 @@
-import { readFileSync } from 'fs';
-import path from 'path';
+// @ts-check
+import { readdirSync, readFileSync, existsSync, writeFileSync, statSync } from 'node:fs';
+import path from 'node:path';
+import console from 'node:console';
+
+// package.json
+import pkg from './package.json' with { type: 'json' };
+
+// plugins
 import dts from 'rollup-plugin-dts';
 import typescript from '@rollup/plugin-typescript';
 import resolve from '@rollup/plugin-node-resolve';
@@ -9,15 +16,88 @@ import terser from '@rollup/plugin-terser';
 import babel from '@rollup/plugin-babel';
 import replace from '@rollup/plugin-replace';
 
-const tsconfigFile = './tsconfig.build.json';
-
-const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
+// # common options
 
 /**
- * @type {import('rollup').RollupOptions}
+ * build config
+ */
+const tsconfig = './tsconfig.build.json';
+
+/**
+ * @type {import('@rollup/plugin-alias').RollupAliasOptions}
+ */
+const aliasOpts = {
+  entries: [{ find: /^@/, replacement: path.resolve(import.meta.dirname, 'src') }],
+};
+
+/**
+ * @type {import('@rollup/plugin-replace').RollupReplaceOptions}
+ */
+const replaceOpts = {
+  preventAssignment: true,
+  values: {
+    __NAME__: pkg.name.replace(/(^|-)(\w)/g, (_, __, c) => c.toUpperCase()),
+    __VERSION__: pkg.version,
+    __AUTHOR__: `${pkg.author.name} <${pkg.author.email}>`,
+  },
+};
+
+// # private plugins
+
+/**
+ * Find all .d.ts files in src and prepend their content to dist/index.d.ts
+ */
+function prependAllDts() {
+  return {
+    name: 'prepend-all-dts',
+    writeBundle() {
+      const srcDir = path.resolve('src');
+      const distDts = path.resolve('dist/index.d.ts');
+      if (!existsSync(distDts)) {
+        console.warn(`Warning: ${distDts} does not exist, skipping prependAllDts.`);
+        return;
+      }
+      const dtsFiles = [];
+      function findDtsFiles(dir) {
+        for (const file of readdirSync(dir)) {
+          const fullPath = path.join(dir, file);
+          if (!existsSync(fullPath)) {
+            throw new Error(`File not found: ${fullPath}`);
+          }
+          if (file.endsWith('.d.ts')) {
+            dtsFiles.push(fullPath);
+            continue;
+          }
+          const stat = statSync(fullPath);
+          if (stat.isDirectory()) {
+            findDtsFiles(fullPath);
+          }
+        }
+      }
+
+      findDtsFiles(srcDir);
+      const allDtsContent = [];
+      for (let i = 0; i < dtsFiles.length; i++) {
+        const relativePath = path.relative(srcDir, dtsFiles[i]);
+        const content = readFileSync(dtsFiles[i], 'utf8');
+        allDtsContent.push(`// # from: ${relativePath}`, content);
+      }
+      const indexContent = readFileSync(distDts, 'utf8');
+      allDtsContent.push('// # index.d.ts', indexContent);
+
+      const content = allDtsContent.join('\n');
+      writeFileSync(distDts, content, 'utf8');
+    },
+  };
+}
+
+// # main options
+
+/**
+ * @type {import('rollup').RollupOptions[]}
  */
 export default [
-  // 主打包配置 - 混淆版
+  // * Main
   {
     input: 'src/index.ts',
     output: [
@@ -29,13 +109,8 @@ export default [
     ],
 
     plugins: [
-      alias({
-        entries: [{ find: /^@/, replacement: path.resolve(import.meta.dirname, 'src') }],
-      }),
-      replace({
-        preventAssignment: true, // 推荐加上
-        __VERSION__: pkg.version,
-      }),
+      alias(aliasOpts),
+      replace(replaceOpts),
       resolve(),
       commonjs(),
       babel({
@@ -46,45 +121,34 @@ export default [
           [
             '@babel/plugin-proposal-decorators',
             {
-              version: '2023-11', // 使用新版装饰器，如需旧版使用 legacy: true
+              version: '2023-11',
             },
           ],
         ],
       }),
-      typescript({
-        tsconfig: tsconfigFile,
-      }),
+      typescript({ tsconfig }),
       terser({
         format: {
-          comments: false, // 移除所有注释
+          comments: false, // remove comments
         },
         compress: {
           drop_console: true,
-          // 安全的常量折叠和死代码消除
-          dead_code: true, // ✅ 安全：移除死代码
-          evaluate: true, // ✅ 安全：计算常量表达式
-          // fold_constants 在新版本的 terser 中已被 evaluate 包含
+          dead_code: true, // ✅ Safe: remove dead code
+          evaluate: true, // ✅ Safe: evaluate constant expressions
         },
         mangle: {
           properties: {
-            regex: /^_/, // 只混淆以下划线开头的属性
+            regex: /^_/, // only mangle properties starting with '_'
           },
         },
       }),
     ],
-    external: [], // 如果要包含所有依赖，这里保持空数组
+    external: [],
   },
-  // 类型声明打包
+  // * Declarations
   {
     input: 'src/index.ts',
     output: [{ file: 'dist/index.d.ts', format: 'es' }],
-    plugins: [
-      alias({
-        entries: [{ find: /^@/, replacement: path.resolve(import.meta.dirname, 'src') }],
-      }),
-      dts({
-        tsconfig: tsconfigFile,
-      }),
-    ],
+    plugins: [alias(aliasOpts), replace(replaceOpts), dts({ tsconfig }), prependAllDts()],
   },
 ];

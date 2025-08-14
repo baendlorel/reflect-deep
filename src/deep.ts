@@ -1,52 +1,41 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Consts, isPrimitive, expectTargetAndKeys, expectTarget } from './common.js';
-
-// Cache global methods for better performance and robustness
-const ObjectCreate = Object.create;
-const ObjectPrototype = Object.prototype;
-const ObjectValueOf = ObjectPrototype.valueOf;
-
-const ReflectGet = Reflect.get;
-const ReflectSet = Reflect.set;
-const ReflectHas = Reflect.has;
-const ReflectOwnKeys = Reflect.ownKeys;
-const ReflectGetPrototypeOf = Reflect.getPrototypeOf;
-const ReflectDeleteProperty = Reflect.deleteProperty;
-const ReflectDefineProperty = Reflect.defineProperty;
-const ReflectSetPrototypef = Reflect.setPrototypeOf;
-
-const ArrayIsArray = Array.isArray;
-const ArrayFromIterator = Array.from;
-
-const ArrayBufferIsView = ArrayBuffer.isView;
-const ArrayBufferSlice = ArrayBuffer.prototype.slice;
-
-const DateConstructor = Date;
-const RegExpConstructor = RegExp;
-const MapConstructor = Map;
-const SetConstructor = Set;
-const WeakMapConstructor = WeakMap;
-const WeakSetConstructor = WeakSet;
-const WeakRefConstructor = WeakRef;
-const DataViewConstructor = DataView;
-
-const NumberConstructor = Number;
-const StringConstructor = String;
-const BooleanConstructor = Boolean;
-const BigIntConstructor = typeof BigInt !== 'undefined' ? BigInt : undefined;
-
-const PromiseConstructor = Promise;
-const SharedArrayBufferConstructor =
-  typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : undefined;
-
-// Buffer is Node.js specific, may not exist in browsers
-const BufferConstructor = typeof Buffer !== 'undefined' ? Buffer : undefined;
-const BufferFrom = BufferConstructor?.from;
-
-const SetAdd = Set.prototype.add;
-const SetForEach = Set.prototype.forEach;
-const MapSet = Map.prototype.set;
-const MapForEach = Map.prototype.forEach;
+import { isPrimitive, expectTargetAndKeys, expectTarget } from './common.js';
+import {
+  NumberConstructor,
+  StringConstructor,
+  BooleanConstructor,
+  BigIntConstructor,
+  ObjectValueOf,
+  ObjectCreate,
+  ArrayIsArray,
+  MapConstructor,
+  MapForEach,
+  MapSet,
+  SetConstructor,
+  SetForEach,
+  SetAdd,
+  DateConstructor,
+  RegExpConstructor,
+  WeakMapConstructor,
+  WeakSetConstructor,
+  WeakRefConstructor,
+  PromiseConstructor,
+  SharedArrayBufferConstructor,
+  ArrayBufferIsView,
+  DataViewConstructor,
+  ArrayBufferSlice,
+  BufferConstructor,
+  BufferFrom,
+  ReflectGetPrototypeOf,
+  ReflectOwnKeys,
+  ReflectHas,
+  ReflectGet,
+  ReflectSet,
+  ReflectDeleteProperty,
+  ReflectDefineProperty,
+  ArrayFromIterator,
+  TypeErr,
+} from './native.js';
 
 interface ReachResult {
   /**
@@ -212,16 +201,12 @@ function deepClone(cache: WeakMap<any, any>, o: any): any {
   return result;
 }
 
-const NOT_GIVEN = Symbol('not-given');
+const NOT_PROVIDED = Symbol('NOT_PROVIDED');
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class ReflectDeep extends null {
   constructor() {
-    throw TypeError(`${Consts.Name} is not a constructor`);
-  }
-
-  static get version() {
-    return '__VERSION__';
+    throw new TypeErr(`__NAME__ is not a constructor`);
   }
 
   /**
@@ -267,7 +252,7 @@ export class ReflectDeep extends null {
   static get<T = any>(
     target: any,
     propertyKeys: PropertyKey[],
-    receiver: any = NOT_GIVEN
+    receiver: any = NOT_PROVIDED
   ): T | undefined {
     expectTargetAndKeys('get', target, propertyKeys);
 
@@ -284,7 +269,7 @@ export class ReflectDeep extends null {
     }
 
     const result =
-      receiver === NOT_GIVEN
+      receiver === NOT_PROVIDED
         ? ReflectGet(current, propertyKeys[propertyKeys.length - 1])
         : ReflectGet(current, propertyKeys[propertyKeys.length - 1], receiver);
 
@@ -309,7 +294,7 @@ export class ReflectDeep extends null {
     target: any,
     propertyKeys: PropertyKey[],
     value: T,
-    receiver: any = NOT_GIVEN
+    receiver: any = NOT_PROVIDED
   ): boolean {
     expectTargetAndKeys('set', target, propertyKeys);
 
@@ -328,7 +313,7 @@ export class ReflectDeep extends null {
       }
     }
 
-    return receiver === NOT_GIVEN
+    return receiver === NOT_PROVIDED
       ? ReflectSet(current, propertyKeys[propertyKeys.length - 1], value)
       : ReflectSet(current, propertyKeys[propertyKeys.length - 1], value, receiver);
   }
@@ -351,7 +336,7 @@ export class ReflectDeep extends null {
   static reach(
     target: object,
     propertyKeys: PropertyKey[],
-    receiver: any = NOT_GIVEN
+    receiver: any = NOT_PROVIDED
   ): ReachResult {
     expectTargetAndKeys('reach', target, propertyKeys);
 
@@ -363,7 +348,7 @@ export class ReflectDeep extends null {
 
       if (i === propertyKeys.length - 1) {
         const value =
-          receiver === NOT_GIVEN
+          receiver === NOT_PROVIDED
             ? ReflectGet(current, propertyKeys[i])
             : ReflectGet(current, propertyKeys[i], receiver);
 

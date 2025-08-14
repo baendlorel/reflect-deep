@@ -6,6 +6,8 @@
 
 提供深度克隆、嵌套属性访问和操作的实用工具，支持循环引用和各种 JavaScript 类型。
 
+> 推荐设置: 将package.json里的type设为module，享受ES6风格的import语句
+
 ## 特性
 
 - 🔍 **深度属性访问**：提供经典命名的函数，如 `get`、`set`、`has`、`deleteProperty` 和 `defineProperty`。原创函数 `reach` 可以安全地检查嵌套对象属性

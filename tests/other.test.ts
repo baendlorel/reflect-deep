@@ -44,7 +44,6 @@ describe('边界情况和刁钻测试', () => {
     function Parent(this: any) {}
     Parent.prototype.inherited = 'Parent';
 
-    const s = Symbol();
     function Child(this: any) {
       this.own = 'Child';
     }

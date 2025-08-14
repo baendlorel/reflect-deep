@@ -3,8 +3,8 @@
     "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "declaration": false, // 是否生成声明文件, 选择false然后由rollup配置全权掌握
-    "esModuleInterop": true, // 可选，增强兼容性
+    "declaration": false, // false to let rollup handle it
+    "esModuleInterop": true,
     "strict": true,
     "outDir": "dist",
     "baseUrl": ".",
