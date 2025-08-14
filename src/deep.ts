@@ -203,6 +203,9 @@ function deepClone(cache: WeakMap<any, any>, o: any): any {
 
 const NOT_PROVIDED = Symbol('NOT_PROVIDED');
 
+/**
+ * __PKG_INFO__
+ */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class ReflectDeep extends null {
   constructor() {
