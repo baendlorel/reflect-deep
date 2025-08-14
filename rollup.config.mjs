@@ -42,7 +42,8 @@ function formatDateFull(dt = new Date()) {
 }
 
 const __NAME__ = pkg.name.replace(/(^|-)(\w)/g, (_, __, c) => c.toUpperCase());
-const __PKG_INFO__ = `@package ${__NAME__}
+const __PKG_INFO__ = `## About
+ * @package ${__NAME__}
  * @author ${pkg.author.name} <${pkg.author.email}>
  * @version ${pkg.version} (Last Update: ${formatDateFull()})
  * @license ${pkg.license}
