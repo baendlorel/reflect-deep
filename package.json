@@ -1,11 +1,12 @@
 {
 	"name": "reflect-deep",
-	"version": "1.3.3",
+	"version": "1.3.4",
 	"author": {
 		"name": "KasukabeTsumugi",
 		"email": "futami16237@gmail.com"
 	},
 	"description": "Deep property manipulation utilities with robust cloning, path traversal, and property access for JavaScript/TypeScript objects.",
+	"description_zh": "ReflectDeep是一个深度属性操作工具，提供强大的克隆、路径遍历和属性访问功能（和Reflect中的同名函数类似）",
 	"type": "module",
 	"exports": {
 		"import": "./dist/index.mjs",

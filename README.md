@@ -8,6 +8,8 @@ Utilities for deep cloning, nested property access, and manipulation with suppor
 
 > Recommended: set "type": "module" in your package.json to use this module with ES6 imports.
 
+For more awesome packages, check out [my homepage💛](https://baendlorel.github.io/?repoType=npm)
+
 ## Features
 
 - 🔍 **Deep Property Access**: Provides functions with classic names like `get`, `set`, `has`, `deleteProperty`, and `defineProperty`. With original function `reach`, you can check nested object properties safely
